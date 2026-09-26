@@ -19,13 +19,22 @@ agencies:
     api:
       - {kind: press, url: "https://apis.data.go.kr/1721000/msitpressreleaseinfo/pressReleaseList"}
       - {kind: policy, url: "https://apis.data.go.kr/1721000/msitmainpolicyinfo/mainPolicyList"}
-    boards: []
+    # 메뉴는 JS(fn_menulast_go)로 연다. 아래는 메뉴 인자(mPid, mId)로 만든 주소
+    boards:
+      - {kind: press, source: probe, url: "https://www.msit.go.kr/bbs/list.do?sCode=user&mPid=208&mId=307"}
+      - {kind: policy, source: probe, url: "https://www.msit.go.kr/contents/cont.do?sCode=user&mPid=80&mId=336"}
+      # 소관기관 업무계획: 산하기관 업무계획이 모여 있을 수 있다(메뉴 인자로 만든 주소, 확인 필요)
+      - {kind: policy, source: probe, url: "https://www.msit.go.kr/bbs/list.do?sCode=user&mPid=75&mId=337"}
   - id: MOE
     name: 교육부
     category: 부처
     file_org: 교육부
     home: https://www.moe.go.kr
-    boards: []  # 오픈API 없음. 보도자료·정책자료 게시판 주소 확인 필요(probe가 홈 메뉴에서 후보를 찾는다)
+    # 오픈API 없음. 사이트 게시판을 읽는다
+    boards:
+      - {kind: press, source: probe, url: "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe"}
+      - {kind: policy, source: probe, url: "https://www.moe.go.kr/sub/infoRenew.do?page=72762&m=031101&s=moe"}      # 올해 업무계획(첨부 4)
+      - {kind: policy, source: probe, url: "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=72713&renew=72713&m=031102&s=moe"}  # 2025년 이전 주요업무계획
 
   # ── 공공기관 ──
   - id: NIPA
