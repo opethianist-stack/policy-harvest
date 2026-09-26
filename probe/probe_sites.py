@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "out"
+HTML_DIR = OUT / "html"
 UA = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/126.0 Safari/537.36"
@@ -29,6 +30,8 @@ UA = (
 TIMEOUT = 20
 DELAY = 1.0
 MAX_CANDIDATES = 10
+MAX_FEEDS = 15
+SITEMAP_WORDS = ("사이트맵", "sitemap", "전체메뉴")
 
 DATE_RE = re.compile(r"20\d{2}[.\-/]\s?\d{1,2}[.\-/]\s?\d{1,2}")
 ATTACH_RE = re.compile(r"\.(hwp|hwpx|pdf|docx?|xlsx?|zip)\b|download|fileDown|atchFile", re.I)
@@ -124,6 +127,52 @@ def shape_of(html: str) -> PageShape:
     return s
 
 
+def dump_html(name: str, html: str) -> str:
+    HTML_DIR.mkdir(parents=True, exist_ok=True)
+    path = HTML_DIR / f"{name}.html"
+    path.write_text(html, encoding="utf-8")
+    return str(path.relative_to(OUT))
+
+
+def classify(label: str, keywords: dict[str, list[str]]) -> str | None:
+    return next((k for k, words in keywords.items() if any(w in label for w in words)), None)
+
+
+def link_inventory(base: str, html: str, keywords: dict[str, list[str]]) -> dict:
+    """메뉴 구조 파악용: 링크 수, 키워드 링크(JS 링크 포함), 원문 속 키워드 빈도, 프레임·리다이렉트."""
+    soup = BeautifulSoup(html, "html.parser")
+    anchors = soup.find_all("a")
+    kw_links = []
+    js_count = 0
+    sitemap = None
+    for a in anchors:
+        label = a.get_text(" ", strip=True)
+        href = (a.get("href") or "").strip()
+        onclick = a.get("onclick") or ""
+        is_js = href.lower().startswith("javascript:") or bool(onclick)
+        js_count += is_js
+        if not sitemap and any(w in label.lower() or w in href.lower() for w in SITEMAP_WORDS) and not is_js:
+            sitemap = urljoin(base, href)
+        kind = classify(label, keywords)
+        if kind:
+            kw_links.append({"kind": kind, "label": label[:40], "href": href[:200], "onclick": onclick[:200]})
+    refresh = soup.find("meta", attrs={"http-equiv": re.compile("refresh", re.I)})
+    refresh_url = None
+    if refresh and "url=" in (refresh.get("content") or "").lower():
+        refresh_url = urljoin(base, refresh["content"].split("=", 1)[1].strip(" '\""))
+    frames = [urljoin(base, f["src"]) for f in soup.find_all(["frame", "iframe"], src=True)]
+    raw_hits = {k: sum(html.count(w) for w in words) for k, words in keywords.items()}
+    return {
+        "anchors": len(anchors),
+        "js_anchors": js_count,
+        "keyword_links": kw_links[:40],
+        "raw_keyword_hits": raw_hits,
+        "sitemap": sitemap,
+        "meta_refresh": refresh_url,
+        "frames": frames[:5],
+    }
+
+
 def find_candidates(home_url: str, html: str, keywords: dict[str, list[str]]) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     host = urlparse(home_url).netloc.replace("www.", "")
@@ -164,20 +213,66 @@ def robots(home_url: str) -> tuple[dict, RobotFileParser | None]:
     return info, None
 
 
+def resolve_home(a: dict) -> tuple[list[dict], Fetch | None, str | None]:
+    """home, alt_homes 순서로 시도해 처음 200을 준 주소를 쓴다."""
+    attempts = []
+    for url in [a["home"], *(a.get("alt_homes") or [])]:
+        f, html = fetch(url)
+        attempts.append(asdict(f))
+        if f.status == 200 and html:
+            return attempts, f, html
+        time.sleep(DELAY)
+    return attempts, None, None
+
+
 def probe_agency(a: dict, keywords: dict[str, list[str]]) -> dict:
     res: dict = {"id": a["id"], "name": a["name"], "ministry": a.get("ministry")}
-    r_info, rp = robots(a["home"])
-    res["robots"] = r_info
-    time.sleep(DELAY)
+    attempts, home_f, home_html = resolve_home(a)
+    res["home_attempts"] = attempts
+    res["home"] = asdict(home_f) if home_f else attempts[0]
+    if not home_f or not home_html:
+        res["robots"] = {"fetch": {"url": "-", "error": "홈 접속 실패로 생략"}, "text": ""}
+        res["boards"] = []
+        return res
+    base = home_f.final_url or home_f.url
+    res["home_dump"] = dump_html(f"{a['id']}_home", home_html)
+    inv = link_inventory(base, home_html, keywords)
 
-    home_f, home_html = fetch(a["home"])
-    res["home"] = asdict(home_f)
-    if home_html:
-        res["home_shape"] = asdict(shape_of(home_html))
+    # 링크가 거의 없고 프레임·meta refresh만 있는 홈이면 실제 첫 화면을 따라간다
+    nxt = inv["meta_refresh"] or (inv["frames"][0] if inv["frames"] else None)
+    if nxt and inv["anchors"] < 10:
+        time.sleep(DELAY)
+        f2, html2 = fetch(nxt)
+        res["home_followed"] = asdict(f2)
+        if html2:
+            base, home_html = f2.final_url or nxt, html2
+            res["home_dump_followed"] = dump_html(f"{a['id']}_home_followed", html2)
+            inv = link_inventory(base, home_html, keywords)
+    res["home_shape"] = asdict(shape_of(home_html))
+    res["home_links"] = inv
+
+    time.sleep(DELAY)
+    r_info, rp = robots(base)
+    res["robots"] = r_info
+
+    pages = [(base, home_html)]
+    if inv["sitemap"]:
+        time.sleep(DELAY)
+        f3, html3 = fetch(inv["sitemap"])
+        res["sitemap"] = asdict(f3)
+        if html3:
+            res["sitemap_dump"] = dump_html(f"{a['id']}_sitemap", html3)
+            res["sitemap_links"] = link_inventory(f3.final_url or inv["sitemap"], html3, keywords)
+            pages.append((f3.final_url or inv["sitemap"], html3))
 
     boards = [{"kind": k, "label": "config", "url": u} for k, u in (a.get("board_urls") or {}).items()]
-    if not boards and home_html:
-        boards = find_candidates(home_f.final_url or a["home"], home_html, keywords)
+    if not boards:
+        seen: set[str] = set()
+        for page_url, page_html in pages:
+            for c in find_candidates(page_url, page_html, keywords):
+                if c["url"] not in seen and len(boards) < MAX_CANDIDATES:
+                    seen.add(c["url"])
+                    boards.append(c)
 
     res["boards"] = []
     for b in boards:
@@ -188,6 +283,7 @@ def probe_agency(a: dict, keywords: dict[str, list[str]]) -> dict:
             entry["robots_allowed"] = rp.can_fetch("*", b["url"])
         if html:
             entry["shape"] = asdict(shape_of(html))
+            entry["dump"] = dump_html(f"{a['id']}_board_{len(res['boards'])}", html)
         res["boards"].append(entry)
     return res
 
@@ -213,6 +309,16 @@ def probe_rss(url: str) -> dict:
     return res
 
 
+def discover_feeds(base: str, html: str) -> list[str]:
+    soup = BeautifulSoup(html, "html.parser")
+    urls = [urljoin(base, l["href"]) for l in soup.find_all("link", href=True) if "rss" in (l.get("type") or "")]
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if href.lower().endswith(".xml") or "/rss/" in href.lower():
+            urls.append(urljoin(base, href))
+    return list(dict.fromkeys(urls))
+
+
 def probe_aggregator(g: dict) -> dict:
     res: dict = {"id": g["id"], "name": g["name"]}
     r_info, _ = robots(g["home"])
@@ -220,11 +326,25 @@ def probe_aggregator(g: dict) -> dict:
     time.sleep(DELAY)
     f, html = fetch(g["home"])
     res["home"] = asdict(f)
+    feeds: list[str] = list(g.get("rss") or [])
     if html:
         res["home_shape"] = asdict(shape_of(html))
-    if g.get("rss"):
+        res["home_dump"] = dump_html(f"{g['id']}_home", html)
+        feeds += discover_feeds(f.final_url or g["home"], html)
+    res["rss_index"] = []
+    for idx in g.get("rss_index") or []:
         time.sleep(DELAY)
-        res["rss"] = probe_rss(g["rss"])
+        fi, hi = fetch(idx)
+        res["rss_index"].append(asdict(fi))
+        if hi:
+            dump_html(f"{g['id']}_rss_index", hi)
+            feeds += discover_feeds(fi.final_url or idx, hi)
+    feeds = list(dict.fromkeys(feeds))
+    res["feeds_found"] = feeds
+    res["feeds"] = []
+    for url in feeds[:MAX_FEEDS]:
+        time.sleep(DELAY)
+        res["feeds"].append({"url": url, **probe_rss(url)})
     return res
 
 
@@ -245,6 +365,21 @@ def to_markdown(data: dict) -> str:
         L.append(f"| {a['id']} | {fmt_fetch(a['home'])} | {fmt_fetch(a['robots']['fetch'])} | {shape} |")
     for a in data["agencies"]:
         L += ["", f"### {a['id']} {a['name']}", ""]
+        if len(a.get("home_attempts", [])) > 1:
+            L.append("- 홈 주소 시도: " + ", ".join(f"{t['url']} → {fmt_fetch(t)}" for t in a["home_attempts"]))
+        inv = a.get("home_links")
+        if inv:
+            used = (a.get("home_followed") or a["home"]).get("final_url")
+            L.append(f"- 사용한 홈: {used} (저장: {a.get('home_dump_followed') or a.get('home_dump')})")
+            L.append(f"- 링크 {inv['anchors']}개, 그중 JS 링크 {inv['js_anchors']}개, 프레임 {len(inv['frames'])}개")
+            L.append(f"- HTML 원문 속 키워드 빈도: {inv['raw_keyword_hits']}")
+            sm = a.get("sitemap")
+            L.append(f"- 사이트맵: {inv['sitemap'] or '링크 없음'}" + (f" → {fmt_fetch(sm)}" if sm else ""))
+            kls = inv["keyword_links"] + (a.get("sitemap_links") or {}).get("keyword_links", [])
+            if kls:
+                L.append("- 키워드 링크:")
+                for k in kls[:15]:
+                    L.append(f"  - [{k['kind']}] {k['label']} | href=`{k['href'][:100]}`" + (f" onclick=`{k['onclick'][:80]}`" if k["onclick"] else ""))
         if not a["boards"]:
             L.append("- 게시판 후보를 찾지 못함")
             continue
@@ -262,10 +397,13 @@ def to_markdown(data: dict) -> str:
     L += ["", "## 집계 경로", ""]
     for g in data["aggregators"]:
         L.append(f"- {g['id']} {g['name']}: 홈 {fmt_fetch(g['home'])}, robots {fmt_fetch(g['robots']['fetch'])}")
-        rss = g.get("rss")
-        if rss:
-            L.append(f"  - RSS: {fmt_fetch(rss['fetch'])}, 항목 {rss.get('item_count', '-')}개, 필드 {rss.get('fields', '-')}")
-            for s in rss.get("sample", [])[:15]:
+        for idx in g.get("rss_index", []):
+            L.append(f"  - RSS 목록 페이지: {idx['url']} → {fmt_fetch(idx)}")
+        if g.get("feeds_found") is not None:
+            L.append(f"  - 찾은 피드 {len(g['feeds_found'])}개 (앞 {MAX_FEEDS}개 확인)")
+        for rss in g.get("feeds", []):
+            L.append(f"  - {rss['url']}: {fmt_fetch(rss['fetch'])}, 항목 {rss.get('item_count', '-')}개, 필드 {rss.get('fields', '-')}")
+            for s in rss.get("sample", [])[:10]:
                 L.append(f"    - {s.get('title', '')} | {s.get('author') or s.get('creator') or s.get('category') or ''}")
     return "\n".join(L) + "\n"
 
