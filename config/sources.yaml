@@ -107,8 +107,10 @@ agencies:
       - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/managementgoal.do"}
       - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/businessplan.do"}
 
-  # ── 시도교육청 (연 1회 주요업무계획. 주소는 2026-09-26 웹 검색 결과에서 찾은 후보) ──
+  # ── 시도교육청 (연 1회 주요업무계획. 12~2월에 확인. 번호 file_no 고정, 문서명은 교육청이 붙인 이름) ──
   - id: SEN
+    file_no: 19-1
+    skip_upload: true   # 12번 파일과 같은 문서
     name: 서울특별시교육청
     category: 교육청
     file_org: 서울특별시교육청
@@ -118,6 +120,7 @@ agencies:
       - {kind: file, source: search, url: "https://www.sen.go.kr/resources/www/data/policydata1_9.pdf"}  # 서울교육 주요업무 2026 (저용량/대용량 중 하나)
       - {kind: file, source: search, url: "https://www.sen.go.kr/resources/www/data/policydata1_9_1.pdf"}  # 서울교육 주요업무 2026 (저용량/대용량 중 하나)
   - id: PEN
+    file_no: 19-2
     name: 부산광역시교육청
     category: 교육청
     file_org: 부산광역시교육청
@@ -125,12 +128,15 @@ agencies:
     boards:
       - {kind: policy, source: search, url: "https://www.pen.go.kr/main/cm/cntnts/cntntsView.do?mi=31848&cntntsId=290"}  # 부산교육소개 > 2026년 > 주요업무계획
   - id: DGE
+    file_no: 19-3
+    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 대구광역시교육청
     category: 교육청
     file_org: 대구광역시교육청
     home: https://www.dge.go.kr/
     boards: []  # 웹 검색·홈 메뉴 모두 못 찾음(홈 메뉴를 JS로 그림). 2026 대구교육 방향 원문 위치 확인 필요
   - id: ICE
+    file_no: 19-4
     name: 인천광역시교육청
     category: 교육청
     file_org: 인천광역시교육청
@@ -138,6 +144,8 @@ agencies:
     boards:
       - {kind: policy, source: search, url: "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=11738&bbsId=1817"}  # 인천교육기본방향 > 교육계획 (2026 인천교육계획)
   - id: GEN
+    file_no: 19-5
+    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 광주광역시교육청
     category: 교육청
     file_org: 광주광역시교육청
@@ -145,6 +153,8 @@ agencies:
     boards:
       - {kind: policy, source: search, url: "https://www.gen.go.kr/sub/page.php?page_code=introduce_04_03_10"}  # 주요업무계획 > 2026 주요업무계획
   - id: DJE
+    file_no: 19-6
+    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 대전광역시교육청
     category: 교육청
     file_org: 대전광역시교육청
@@ -154,6 +164,7 @@ agencies:
     boards:
       - {kind: policy, source: probe, url: "https://www.dje.go.kr/sub/info.do?page=0505&m=050602&s=dje"}  # 주요업무계획(첨부 2)
   - id: USE
+    file_no: 19-7
     name: 울산광역시교육청
     category: 교육청
     file_org: 울산광역시교육청
@@ -161,6 +172,8 @@ agencies:
     boards:
       - {kind: policy, source: search, url: "https://use.go.kr/user/bbs/BD_selectBbs.do?q_bbsSn=1940&q_bbsDocNo=20251218112017796"}  # 울산교육계획 게시판, 2026 울산교육계획 글
   - id: SJE
+    file_no: 19-8
+    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 세종특별자치시교육청
     category: 교육청
     file_org: 세종특별자치시교육청
@@ -169,6 +182,7 @@ agencies:
       - {kind: policy, source: search, url: "https://www.sje.go.kr/sje/cm/cntnts/cntntsView.do?mi=52716&cntntsId=35696"}  # 주요업무계획 (2026판인지 미확인)
       - {kind: policy, source: search, url: "https://www.sje.go.kr/sje/cm/cntnts/cntntsView.do?mi=52681&cntntsId=35320"}  # 주요업무계획 (같은 제목 다른 페이지)
   - id: GOE
+    file_no: 19-9
     name: 경기도교육청
     category: 교육청
     file_org: 경기도교육청
@@ -176,6 +190,7 @@ agencies:
     boards:
       - {kind: file, source: search, url: "https://www.goe.go.kr/resource/goe/na/bbs_1995/2025/12/948f7aa5-e611-4b07-8dd7-cf096ca0c682.pdf"}  # 경기교육 주요업무 계획 PDF
   - id: GWE
+    file_no: 19-10
     name: 강원특별자치도교육청
     category: 교육청
     file_org: 강원특별자치도교육청
@@ -184,6 +199,7 @@ agencies:
       - {kind: policy, source: search, url: "https://www.gwe.go.kr/main/content.do?key=m2307211210954"}  # 주요업무계획 고정 페이지
       - {kind: policy, source: search, url: "https://www.gwe.go.kr/main/bbs/list.do?key=m2307211198781"}  # 계획 게시판
   - id: CBE
+    file_no: 19-11
     name: 충청북도교육청
     category: 교육청
     file_org: 충청북도교육청
@@ -192,6 +208,8 @@ agencies:
       - {kind: policy, source: search, url: "https://www.cbe.go.kr/cbe/cm/cntnts/cntntsView.do?mi=11737&cntntsId=35634"}  # 2026 주요업무계획
       - {kind: policy, source: search, url: "https://www.cbe.go.kr/cbe/cm/cntnts/cntntsView.do?mi=11738&cntntsId=35636"}  # 2026 주요업무 세부추진계획
   - id: CNE
+    file_no: 19-12
+    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 충청남도교육청
     category: 교육청
     file_org: 충청남도교육청
@@ -201,6 +219,7 @@ agencies:
     boards:
       - {kind: policy, source: probe, url: "https://www.cne.go.kr/boardCnts/list.do?boardID=21493&m=080219&s=cne"}  # 주요업무계획 게시판
   - id: JBE
+    file_no: 19-13
     name: 전북특별자치도교육청
     category: 교육청
     file_org: 전북특별자치도교육청
@@ -208,6 +227,8 @@ agencies:
     boards:
       - {kind: policy, source: search, url: "https://www.jbe.go.kr/index.jbe?menuCd=DOM_000000107003002000"}  # 전북교육소개 > 2026 전북교육 계획
   - id: JNE
+    file_no: 19-14
+    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 전라남도교육청
     category: 교육청
     file_org: 전라남도교육청
@@ -215,6 +236,7 @@ agencies:
     boards:
       - {kind: policy, source: search, url: "https://www.jne.go.kr/main/cm/cntnts/cntntsView.do?mi=225&cntntsId=31"}  # 전남교육 > 주요업무계획 (연도별 PDF)
   - id: GBE
+    file_no: 19-15
     name: 경상북도교육청
     category: 교육청
     file_org: 경상북도교육청
@@ -223,6 +245,7 @@ agencies:
       - {kind: policy, source: search, url: "https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=3115"}  # 검색 결과 페이지(첨부가 정보공개 매뉴얼 등으로 섞임)
       - {kind: policy, source: probe, url: "https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=9394"}  # 홈 메뉴 "교육계획"
   - id: GNE
+    file_no: 19-16
     name: 경상남도교육청
     category: 교육청
     file_org: 경상남도교육청
@@ -231,6 +254,8 @@ agencies:
       - {kind: policy, source: search, url: "https://www.gne.go.kr/user/bbs/BD_selectBbsList.do?q_bbsSn=1561"}  # 교육청·이용안내 > 경남교육 (후보)
       - {kind: policy, source: search, url: "https://www.gne.go.kr/user/bbs/BD_selectBbsList.do?q_bbsSn=1464&q_clsfNo=1&q_lwrkCdId=2"}  # 정책기획관 > 자료실 (후보)
   - id: JJE
+    file_no: 19-17
+    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 제주특별자치도교육청
     category: 교육청
     file_org: 제주특별자치도교육청
