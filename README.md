@@ -12,7 +12,7 @@
 | KOSAC | 한국과학창의재단 (구 KOFAC) | 과학기술정보통신부 |
 | KEDI | 한국교육개발원 | 국무조정실(경제·인문사회연구회) |
 
-문서 종류: 업무계획, 경영목표, 보도자료, 입찰공고
+문서 종류: 보도자료, 업무계획, 경영목표, 사업계획 (정책문서만. 입찰·사업공고·공지는 Policy Fit으로 인계: `docs/handoff-policy-fit.md`)
 
 ## 원칙
 
@@ -30,6 +30,7 @@ probe/                       1단계 사전 조사 스크립트
 .github/workflows/probe.yml  사전 조사 워크플로 (Actions 러너에서 접속 확인)
 docs/research.md             1단계 사전 조사 결과
 docs/design.md               설계 (초안)
+docs/handoff-policy-fit.md   Policy Fit으로 넘긴 공고 게시판 정보
 ```
 
 ## 진행 단계
