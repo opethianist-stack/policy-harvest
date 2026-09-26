@@ -2,7 +2,7 @@
 # boards: 게시판 목록. kind는 press(보도자료) notice(공지) business(사업공고) bid(입찰공고) disclosure(경영공시·경영목표·사업계획)
 #   source: user(담당자 확인) / probe(사전 조사에서 찾음)
 #   비어 있으면 probe가 홈페이지 메뉴에서 후보를 찾는다.
-# ministry: 주무부처. KICE·KEDI는 국무조정실 경제·인문사회연구회 소관이다(교육 분야 연구기관).
+# ministry: 주무부처. KEDI는 국무조정실 경제·인문사회연구회 소관이다(교육 분야 연구기관).
 
 agencies:
   - id: NIPA
@@ -45,11 +45,6 @@ agencies:
       - {kind: press, source: probe, url: "https://www.kosac.re.kr/menus/272/boards/394/posts"}
       - {kind: notice, source: probe, url: "https://www.kosac.re.kr/menus/270/boards/386/posts"}
       - {kind: disclosure, source: probe, url: "https://www.kosac.re.kr/menus/331/contents/331"}
-  - id: KICE
-    name: 한국교육과정평가원
-    ministry: 국무조정실(경제·인문사회연구회)
-    home: https://www.kice.re.kr
-    boards: []  # 홈이 시각 계산 JS로 이동해 자동 탐색 불가. 게시판 주소 확인 필요.
   - id: KEDI
     name: 한국교육개발원
     ministry: 국무조정실(경제·인문사회연구회)
@@ -66,6 +61,14 @@ aggregators:
   - id: ALIO
     name: 공공기관 경영정보 공개시스템
     home: https://www.alio.go.kr
+    # 경영공시 원문(사업계획·경영목표)은 API가 없어 웹 화면으로 확인해야 한다.
+
+# 알리오플러스 Open API (Policy Fit에서 쓰는 것과 같은 키, API마다 키가 따로 있다)
+#   호스트 http://openapi.alioplus.go.kr (HTTPS 미지원), POST form, 인증은 폼 필드 X-API-AUTH-KEY, pageSize 필수
+#   /api/apba     기관정보 (ALIO_APBA_KEY)      기관유형 08=연구교육, 응답에 주요사업 목록(bsnMstList)
+#   /api/business 사업정보 (ALIO_BIZ_KEY)       기관별 사업 소개·대상·기간. 공고 게시판이 아니다
+#   /api/event    행사정보 (ALIO_EVENT_KEY)
+#   /api/facility 시설정보 (ALIO_FACILITY_KEY)  수집 대상 아님
 # 정책브리핑(korea.kr): RSS 서비스 중단(2026-09-26 확인), data.go.kr에도 대체 API가 없어 수집 경로에서 제외한다.
 
 # 홈페이지 메뉴에서 게시판 후보를 찾을 때 쓰는 링크 텍스트
