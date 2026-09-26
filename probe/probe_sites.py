@@ -272,7 +272,7 @@ def probe_agency(a: dict, keywords: dict[str, list[str]]) -> dict:
             res["sitemap_links"] = link_inventory(f3.final_url or inv["sitemap"], html3, keywords)
             pages.append((f3.final_url or inv["sitemap"], html3))
 
-    boards = [{"kind": k, "label": "config", "url": u} for k, u in (a.get("board_urls") or {}).items()]
+    boards = [{"kind": b["kind"], "label": b.get("source", "config"), "url": b["url"]} for b in a.get("boards") or []]
     if not boards:
         seen: set[str] = set()
         for page_url, page_html in pages:

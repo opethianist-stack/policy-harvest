@@ -1,6 +1,7 @@
 # 수집 대상 기관 설정
-# alt_homes: home 접속 실패 시 차례로 시도할 주소
-# board_urls: 게시판 URL을 확인한 뒤 채운다. 비어 있으면 probe가 홈페이지 메뉴에서 후보를 찾는다.
+# boards: 게시판 목록. kind는 press(보도자료) notice(공지) business(사업공고) bid(입찰공고) disclosure(경영공시·경영목표·사업계획)
+#   source: user(담당자 확인) / probe(사전 조사에서 찾음)
+#   비어 있으면 probe가 홈페이지 메뉴에서 후보를 찾는다.
 # ministry: 주무부처. KICE·KEDI는 국무조정실 경제·인문사회연구회 소관이다(교육 분야 연구기관).
 
 agencies:
@@ -8,45 +9,64 @@ agencies:
     name: 정보통신산업진흥원
     ministry: 과학기술정보통신부
     home: https://www.nipa.kr
-    board_urls: {}
+    boards:
+      - {kind: notice, source: user, url: "https://www.nipa.kr/home/2-1"}
+      - {kind: business, source: user, url: "https://www.nipa.kr/home/2-2"}
+      - {kind: bid, source: user, url: "https://www.nipa.kr/home/2-3"}
+      - {kind: press, source: probe, url: "https://www.nipa.kr/home/4-4-1"}
+      - {kind: disclosure, source: probe, url: "https://www.nipa.kr/home/3-2"}
   - id: NIA
     name: 한국지능정보사회진흥원
     ministry: 과학기술정보통신부
     home: https://www.nia.or.kr
-    board_urls: {}
+    boards:
+      - {kind: bid, source: user, url: "https://www.nia.or.kr/site/nia_kor/ex/bbs/List.do?cbIdx=78336"}
+      - {kind: notice, source: user, url: "https://www.nia.or.kr/site/nia_kor/ex/bbs/List.do?cbIdx=99835"}
+      - {kind: press, source: user, url: "https://www.nia.or.kr/site/nia_kor/ex/bbs/List.do?cbIdx=90549"}
   - id: KERIS
     name: 한국교육학술정보원
     ministry: 교육부
     home: https://www.keris.or.kr
-    board_urls: {}
+    boards:
+      - {kind: bid, source: user, url: "https://www.keris.or.kr/main/tender/view/selectTenderList.do?mi=1076"}
+      # 공지사항에도 사업(선도교사 양성연수 등)이 올라온다. 공지 전체를 수집하고 분류에서 거른다.
+      - {kind: notice, source: user, url: "https://www.keris.or.kr/main/na/ntt/selectNttList.do?mi=1051&bbsId=1088"}
+      - {kind: press, source: user, url: "https://www.keris.or.kr/main/na/ntt/selectNttList.do?mi=1088&bbsId=1090"}
+    # 발주계획은 나라장터 발주계획 화면이다(기관코드 B550629). 사이트 대신 나라장터 API로 받는다.
+    g2b_inst_cd: B550629
   - id: KOSAC
     name: 한국과학창의재단
     former_ids: [KOFAC]  # 2025년 명칭 변경 전 약칭. 과거 문서·알리오 자료에 남아 있을 수 있다.
     ministry: 과학기술정보통신부
     home: https://www.kosac.re.kr/main
-    board_urls: {}
+    boards:
+      - {kind: business, source: user, url: "https://www.kosac.re.kr/menus/274/bns"}
+      - {kind: bid, source: user, url: "https://www.kosac.re.kr/menus/275/boards/403/posts"}
+      - {kind: press, source: probe, url: "https://www.kosac.re.kr/menus/272/boards/394/posts"}
+      - {kind: notice, source: probe, url: "https://www.kosac.re.kr/menus/270/boards/386/posts"}
+      - {kind: disclosure, source: probe, url: "https://www.kosac.re.kr/menus/331/contents/331"}
   - id: KICE
     name: 한국교육과정평가원
     ministry: 국무조정실(경제·인문사회연구회)
     home: https://www.kice.re.kr
-    board_urls: {}
+    boards: []  # 홈이 시각 계산 JS로 이동해 자동 탐색 불가. 게시판 주소 확인 필요.
   - id: KEDI
     name: 한국교육개발원
     ministry: 국무조정실(경제·인문사회연구회)
     home: https://www.kedi.re.kr
-    board_urls: {}
+    boards:
+      - {kind: press, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/announce/listBroadAnnounceForm.do"}
+      - {kind: notice, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/announce/listNoticeAnnounceForm.do"}
+      - {kind: bid, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/announce/listBidAnnounceForm.do"}
+      - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/managementgoal.do"}
+      - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/businessplan.do"}
 
 # 기관 사이트 외 수집 경로 후보
 aggregators:
   - id: ALIO
     name: 공공기관 경영정보 공개시스템
     home: https://www.alio.go.kr
-  - id: KOREA_KR
-    name: 정책브리핑
-    home: https://www.korea.kr
-    # RSS 주소는 확정 전. 후보와 목록 페이지에서 찾은 피드를 모두 시도한다.
-    rss_index: [https://www.korea.kr/etc/rss.do]
-    rss: [https://www.korea.kr/rss/pressrelease.xml, https://www.korea.kr/rss/policy.xml]
+# 정책브리핑(korea.kr): RSS 서비스 중단(2026-09-26 확인), data.go.kr에도 대체 API가 없어 수집 경로에서 제외한다.
 
 # 홈페이지 메뉴에서 게시판 후보를 찾을 때 쓰는 링크 텍스트
 board_keywords:
