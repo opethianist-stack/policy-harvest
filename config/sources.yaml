@@ -142,16 +142,16 @@ agencies:
     file_org: 인천광역시교육청
     home: https://www.ice.go.kr/ice/main.do
     boards:
-      - {kind: policy, source: search, url: "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=11738&bbsId=1817"}  # 인천교육기본방향 > 교육계획 (2026 인천교육계획)
+      - {kind: policy, source: search, url: "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=11738&bbsId=1817"}  # 인천교육기본방향 > 교육계획. PDF는 goFileDown(키) JS로 받는다
   - id: GEN
     file_no: 19-5
-    manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
     name: 광주광역시교육청
     category: 교육청
     file_org: 광주광역시교육청
     home: https://www.gen.go.kr/main/main.php
     boards:
-      - {kind: policy, source: search, url: "https://www.gen.go.kr/sub/page.php?page_code=introduce_04_03_10"}  # 주요업무계획 > 2026 주요업무계획
+      - {kind: policy, source: search, url: "https://www.gen.go.kr/sub/page.php?page_code=introduce_04_03_10"}  # 주요업무계획 > 2026 주요업무계획(응답 20초 이상)
+      - {kind: file, source: probe, url: "https://www.gen.go.kr/data_files/doc/2025/26_1_1.pdf"}  # 위 페이지의 DOWNLOAD 링크
   - id: DJE
     file_no: 19-6
     manual: true   # 담당자가 직접 받아 넣는다(docs/edu-offices-2026.md)
