@@ -1,8 +1,8 @@
 # 수집 대상 기관 설정
 # 정책문서만 수집한다. 입찰·사업공고는 Policy Fit에서 다룬다(docs/handoff-policy-fit.md).
-# category: 파일명의 "분류" 값(부처 / 공공기관)
+# category: 파일명의 "분류" 값(부처 / 공공기관 / 교육청)
 # file_org: 파일명의 "기관" 값. Policy Fit data/org-rules.json 의 별칭과 맞아야 한다
-# boards: 게시판 목록. kind는 press(보도자료) policy(정책자료) notice(공지사항) disclosure(경영공시·경영목표·사업계획)
+# boards: 게시판 목록. kind는 press(보도자료) policy(정책자료) notice(공지사항) disclosure(경영공시·경영목표·사업계획) file(원문 파일 직접 주소)
 #   source: user(담당자 확인) / probe(사전 조사에서 찾음) / search(웹 검색 결과에서 찾음)
 #   비어 있으면 probe가 홈페이지 메뉴에서 후보를 찾는다.
 # ministry: 주무부처. KEDI는 국무조정실 경제·인문사회연구회 소관이다(교육 분야 연구기관).
@@ -107,6 +107,131 @@ agencies:
       - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/managementgoal.do"}
       - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/businessplan.do"}
 
+  # ── 시도교육청 (연 1회 주요업무계획. 주소는 2026-09-26 웹 검색 결과에서 찾은 후보) ──
+  - id: SEN
+    name: 서울특별시교육청
+    category: 교육청
+    file_org: 서울특별시교육청
+    home: https://www.sen.go.kr/sen/index.do
+    boards:
+      - {kind: policy, source: search, url: "https://www.sen.go.kr/user/bbs/BD_selectBbsList.do?q_bbsSn=1025"}  # 행정정보 > 정책자료 > 서울교육정책
+      - {kind: file, source: search, url: "https://www.sen.go.kr/resources/www/data/policydata1_9.pdf"}  # 서울교육 주요업무 2026 (저용량/대용량 중 하나)
+      - {kind: file, source: search, url: "https://www.sen.go.kr/resources/www/data/policydata1_9_1.pdf"}  # 서울교육 주요업무 2026 (저용량/대용량 중 하나)
+  - id: PEN
+    name: 부산광역시교육청
+    category: 교육청
+    file_org: 부산광역시교육청
+    home: https://www.pen.go.kr/main/main.do
+    boards:
+      - {kind: policy, source: search, url: "https://www.pen.go.kr/main/cm/cntnts/cntntsView.do?mi=31848&cntntsId=290"}  # 부산교육소개 > 2026년 > 주요업무계획
+  - id: DGE
+    name: 대구광역시교육청
+    category: 교육청
+    file_org: 대구광역시교육청
+    home: https://www.dge.go.kr/
+    boards: []  # 웹 검색으로 못 찾음. probe가 홈 메뉴에서 후보를 찾는다
+  - id: ICE
+    name: 인천광역시교육청
+    category: 교육청
+    file_org: 인천광역시교육청
+    home: https://www.ice.go.kr/ice/main.do
+    boards:
+      - {kind: policy, source: search, url: "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=11738&bbsId=1817"}  # 인천교육기본방향 > 교육계획 (2026 인천교육계획)
+  - id: GEN
+    name: 광주광역시교육청
+    category: 교육청
+    file_org: 광주광역시교육청
+    home: https://www.gen.go.kr/main/main.php
+    boards:
+      - {kind: policy, source: search, url: "https://www.gen.go.kr/sub/page.php?page_code=introduce_04_03_10"}  # 주요업무계획 > 2026 주요업무계획
+  - id: DJE
+    name: 대전광역시교육청
+    category: 교육청
+    file_org: 대전광역시교육청
+    home: https://www.dje.go.kr/main.do
+    boards: []  # 웹 검색으로 못 찾음. probe가 홈 메뉴에서 후보를 찾는다
+  - id: USE
+    name: 울산광역시교육청
+    category: 교육청
+    file_org: 울산광역시교육청
+    home: https://www.use.go.kr/
+    boards:
+      - {kind: policy, source: search, url: "https://use.go.kr/user/bbs/BD_selectBbs.do?q_bbsSn=1940&q_bbsDocNo=20251218112017796"}  # 울산교육계획 게시판, 2026 울산교육계획 글
+  - id: SJE
+    name: 세종특별자치시교육청
+    category: 교육청
+    file_org: 세종특별자치시교육청
+    home: https://www.sje.go.kr/sje/
+    boards:
+      - {kind: policy, source: search, url: "https://www.sje.go.kr/sje/cm/cntnts/cntntsView.do?mi=52716&cntntsId=35696"}  # 주요업무계획 (2026판인지 미확인)
+      - {kind: policy, source: search, url: "https://www.sje.go.kr/sje/cm/cntnts/cntntsView.do?mi=52681&cntntsId=35320"}  # 주요업무계획 (같은 제목 다른 페이지)
+  - id: GOE
+    name: 경기도교육청
+    category: 교육청
+    file_org: 경기도교육청
+    home: https://www.goe.go.kr/
+    boards:
+      - {kind: file, source: search, url: "https://www.goe.go.kr/resource/goe/na/bbs_1995/2025/12/948f7aa5-e611-4b07-8dd7-cf096ca0c682.pdf"}  # 경기교육 주요업무 계획 PDF
+  - id: GWE
+    name: 강원특별자치도교육청
+    category: 교육청
+    file_org: 강원특별자치도교육청
+    home: https://www.gwe.go.kr/main/index.do
+    boards:
+      - {kind: policy, source: search, url: "https://www.gwe.go.kr/main/content.do?key=m2307211210954"}  # 주요업무계획 고정 페이지
+      - {kind: policy, source: search, url: "https://www.gwe.go.kr/main/bbs/list.do?key=m2307211198781"}  # 계획 게시판
+  - id: CBE
+    name: 충청북도교육청
+    category: 교육청
+    file_org: 충청북도교육청
+    home: https://www.cbe.go.kr
+    boards:
+      - {kind: policy, source: search, url: "https://www.cbe.go.kr/cbe/cm/cntnts/cntntsView.do?mi=11737&cntntsId=35634"}  # 2026 주요업무계획
+      - {kind: policy, source: search, url: "https://www.cbe.go.kr/cbe/cm/cntnts/cntntsView.do?mi=11738&cntntsId=35636"}  # 2026 주요업무 세부추진계획
+  - id: CNE
+    name: 충청남도교육청
+    category: 교육청
+    file_org: 충청남도교육청
+    home: https://www.cne.go.kr
+    boards: []  # 웹 검색으로 못 찾음. probe가 홈 메뉴에서 후보를 찾는다
+  - id: JBE
+    name: 전북특별자치도교육청
+    category: 교육청
+    file_org: 전북특별자치도교육청
+    home: https://www.jbe.go.kr/index.jbe
+    boards:
+      - {kind: policy, source: search, url: "https://www.jbe.go.kr/index.jbe?menuCd=DOM_000000107003002000"}  # 전북교육소개 > 2026 전북교육 계획
+  - id: JNE
+    name: 전라남도교육청
+    category: 교육청
+    file_org: 전라남도교육청
+    home: https://www.jne.go.kr/main/main.do
+    boards:
+      - {kind: policy, source: search, url: "https://www.jne.go.kr/main/cm/cntnts/cntntsView.do?mi=225&cntntsId=31"}  # 전남교육 > 주요업무계획 (연도별 PDF)
+  - id: GBE
+    name: 경상북도교육청
+    category: 교육청
+    file_org: 경상북도교육청
+    home: https://www.gbe.kr/main/main.do
+    boards:
+      - {kind: policy, source: search, url: "https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=3115"}  # 주요업무계획 (2026판 여부 미확인)
+  - id: GNE
+    name: 경상남도교육청
+    category: 교육청
+    file_org: 경상남도교육청
+    home: https://www.gne.go.kr
+    boards:
+      - {kind: policy, source: search, url: "https://www.gne.go.kr/user/bbs/BD_selectBbsList.do?q_bbsSn=1561"}  # 교육청·이용안내 > 경남교육 (후보)
+      - {kind: policy, source: search, url: "https://www.gne.go.kr/user/bbs/BD_selectBbsList.do?q_bbsSn=1464&q_clsfNo=1&q_lwrkCdId=2"}  # 정책기획관 > 자료실 (후보)
+  - id: JJE
+    name: 제주특별자치도교육청
+    category: 교육청
+    file_org: 제주특별자치도교육청
+    home: https://www.jje.go.kr
+    boards:
+      - {kind: policy, source: search, url: "https://www.jje.go.kr/index.jje?menuCd=DOM_000000106002009001"}  # 2026 제주교육 후보(미확인)
+      - {kind: policy, source: search, url: "https://www.jje.go.kr/index.jje?menuCd=DOM_000000106002007000"}  # 2025 제주교육 기본방향
+
 # 기관 사이트 외 수집 경로 후보
 aggregators:
   - id: ALIO
@@ -125,5 +250,5 @@ aggregators:
 # 홈페이지 메뉴에서 게시판 후보를 찾을 때 쓰는 링크 텍스트
 board_keywords:
   press: [보도자료, 언론보도]
-  policy: [정책자료, 업무계획, 주요정책, 정책브리핑]
+  policy: [정책자료, 업무계획, 주요정책, 정책브리핑, 주요업무, 교육계획, 교육방향]
   disclosure: [경영공시, 경영정보, 사업계획, 경영목표, 정보공개]

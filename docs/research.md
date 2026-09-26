@@ -2,7 +2,7 @@
 
 조사일: 2026-09-26
 실행 환경: GitHub Actions `ubuntu-latest` 러너(미국 애리조나, Microsoft AS8075)
-조사 도구: `probe/probe_sites.py`, 워크플로 `probe-sites`(1~6차 실행)
+조사 도구: `probe/probe_sites.py`, 워크플로 `probe-sites`(1~10차 실행)
 
 ## 1. 요약
 
@@ -92,6 +92,32 @@
 
 - 다섯 페이지 모두 표 행 38·날짜 2로 같게 나왔다. 게시글 목록이 아니라 공통 레이아웃이 잡혔을 수 있다. 목록을 별도 요청으로 불러오는지 수집기 구현 때 확인해야 한다
 - 홈 화면에는 날짜가 붙은 보도자료·공지·입찰 글과 상세 링크(`selectAnnounceForm.do?board_sq_no=…&article_sq_no=…`)가 있다. 게시판 번호는 공지 1, 입찰 2, 보도자료 3이다
+
+## 2-1. 부처 (10차 실행, 2026-09-26)
+
+| 부처 | 홈 | robots.txt | 메뉴 |
+|---|---|---|---|
+| 과기정통부 `www.msit.go.kr` | 200 | 검색 페이지만 막음 | JS 함수 `fn_menulast_go('user', mPid, mId, 경로)`로 연다 |
+| 교육부 `www.moe.go.kr` | 200 | `/search`만 막음 | 일반 링크 |
+| 고용노동부 `www.moel.go.kr` | 200. 홈은 JS로 `index.do`로 이동 | 개인정보·일부 게시판만 막음 | 게시판 주소는 웹 검색으로 확인 |
+| 국가AI전략위 `www.aikorea.go.kr` | 200. 홈 응답이 메뉴 JSON | Naver(Yeti) 허용만 적혀 있고 막는 경로 없음 | `brdList.do?menu_cd=` |
+
+| 부처 | 종류 | 주소 | 결과 |
+|---|---|---|---|
+| 과기정통부 | 보도자료 | `/bbs/list.do?sCode=user&mPid=208&mId=307` | 200이지만 목록 표·날짜가 잡히지 않음. 보도자료는 API로 받는다 |
+| 과기정통부 | 업무계획 | `/contents/cont.do?sCode=user&mPid=80&mId=336` | 200, 내용 미확인 |
+| 과기정통부 | 소관기관 업무계획 | `/bbs/list.do?sCode=user&mPid=75&mId=337` | 200이지만 목록이 잡히지 않음. 목록을 별도 요청으로 불러오는지 확인 필요 |
+| 교육부 | 보도자료 | `/boardCnts/listRenew.do?boardID=294&m=020402&s=moe` | 서버 렌더링 표, 행 10 |
+| 교육부 | 올해 업무계획 | `/sub/infoRenew.do?page=72762&m=031101&s=moe` | 콘텐츠 페이지, 첨부 링크 4 |
+| 교육부 | 2025년 이전 주요업무계획 | `/boardCnts/listRenew.do?boardID=72713&renew=72713&m=031102&s=moe` | 서버 렌더링 표, 행 21 |
+| 고용노동부 | 보도자료 | `/news/enews/report/enewsList.do` | 서버 렌더링 표, 행 10, 목록에 첨부 링크 10 |
+| 고용노동부 | 정책자료실 | `/policy/policydata/list.do` | 서버 렌더링 표, 행 10. 2026년 주요업무 추진계획이 여기 있다(`view.do?bbs_seq=20251200714`) |
+| 고용노동부 | 업무보고 | `/policy/busireport/main.do` | 200, 날짜 5 |
+| 국가AI전략위 | `menu_cd=000011` | `/web/board/brdList.do?menu_cd=000011` | 서버 렌더링, 날짜 32. 인공지능 행동계획 원문(`num=523`)이 이 게시판에 있다 |
+| 국가AI전략위 | 정책 보고서 | `/web/board/brdList.do?menu_cd=000014` | 서버 렌더링, 날짜 23 |
+| 국가AI전략위 | 보도자료 | `/web/board/brdList.do?menu_cd=000018` | 200이지만 목록 없음. 검색 결과상 보도자료는 `content.do?menu_cd=000018` 형태일 수 있음 |
+
+과기정통부 API(공공데이터포털): 보도자료·주요정책·사업공고·보도설명 4종, 한 페이지 최대 10건, 첨부 `fileUrl`은 로그인 없이 받아진다(Policy Fit `CLAUDE.md` ⑦-3). 첨부는 대부분 hwpx+odt 쌍이다.
 
 ## 3. 집계 경로
 

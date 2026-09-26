@@ -180,6 +180,21 @@ def link_inventory(base: str, html: str, keywords: dict[str, list[str]]) -> dict
     }
 
 
+def attachment_links(base: str, html: str) -> list[dict]:
+    """페이지 안의 첨부(파일) 링크. 2026이 들어간 것을 앞에 둔다."""
+    soup = BeautifulSoup(html, "html.parser")
+    out = []
+    for a in soup.find_all("a"):
+        href = (a.get("href") or "").strip()
+        onclick = a.get("onclick") or ""
+        label = a.get_text(" ", strip=True)
+        if ATTACH_RE.search(href) or ATTACH_RE.search(onclick) or re.search(r"\.(pdf|hwpx?)\b", label, re.I):
+            out.append({"label": label[:60], "href": urljoin(base, href)[:200] if href and not href.startswith("javascript") else href[:120],
+                        "onclick": onclick[:120]})
+    out.sort(key=lambda x: "2026" not in x["label"] + x["href"])
+    return out[:8]
+
+
 def find_candidates(home_url: str, html: str, keywords: dict[str, list[str]]) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     host = urlparse(home_url).netloc.replace("www.", "")
@@ -288,7 +303,11 @@ def probe_agency(a: dict, keywords: dict[str, list[str]]) -> dict:
         entry = {**b, "fetch": asdict(f)}
         if rp:
             entry["robots_allowed"] = rp.can_fetch("*", b["url"])
+        if b["kind"] == "file":
+            res["boards"].append(entry)
+            continue
         if html:
+            entry["attachments"] = attachment_links(f.final_url or b["url"], html)
             entry["shape"] = asdict(shape_of(html))
             entry["dump"] = dump_html(f"{a['id']}_board_{len(res['boards'])}", html)
         res["boards"].append(entry)
@@ -407,9 +426,16 @@ def to_markdown(data: dict) -> str:
             sh = b.get("shape") or {}
             nums = f"{sh.get('table_rows', '-')}/{sh.get('date_count', '-')}/{sh.get('js_links', '-')}/{sh.get('attach_links', '-')}"
             allowed = {True: "허용", False: "차단"}.get(b.get("robots_allowed"), "-")
+            if b["kind"] == "file":
+                ft = b["fetch"]
+                nums = f"{ft.get('content_type') or '-'} / {ft.get('bytes') or '-'}B"
             L.append(
                 f"| {b['kind']} | {b['label']} | {fmt_fetch(b['fetch'])} | {allowed} | {sh.get('verdict', '-')} | {nums} | {b['url']} |"
             )
+        for b in a["boards"]:
+            for att in b.get("attachments") or []:
+                if b["kind"] in ("policy", "disclosure"):
+                    L.append(f"  - 첨부({b['kind']}): {att['label']} | `{att['href']}`" + (f" onclick=`{att['onclick']}`" if att["onclick"] else ""))
         robots_text = a["robots"]["text"].strip()
         if robots_text:
             L += ["", "<details><summary>robots.txt</summary>", "", "```", robots_text[:1500], "```", "</details>"]
