@@ -1,0 +1,52 @@
+# 수집 대상 기관 설정
+# board_urls: 게시판 URL을 확인한 뒤 채운다. 비어 있으면 probe가 홈페이지 메뉴에서 후보를 찾는다.
+# ministry: 주무부처. KICE·KEDI는 국무조정실 경제·인문사회연구회 소관이다(교육 분야 연구기관).
+
+agencies:
+  - id: NIPA
+    name: 정보통신산업진흥원
+    ministry: 과학기술정보통신부
+    home: https://www.nipa.kr
+    board_urls: {}
+  - id: NIA
+    name: 한국지능정보사회진흥원
+    ministry: 과학기술정보통신부
+    home: https://www.nia.or.kr
+    board_urls: {}
+  - id: KERIS
+    name: 한국교육학술정보원
+    ministry: 교육부
+    home: https://www.keris.or.kr
+    board_urls: {}
+  - id: KOFAC
+    name: 한국과학창의재단
+    ministry: 과학기술정보통신부
+    home: https://www.kofac.re.kr
+    board_urls: {}
+  - id: KICE
+    name: 한국교육과정평가원
+    ministry: 국무조정실(경제·인문사회연구회)
+    home: https://www.kice.re.kr
+    board_urls: {}
+  - id: KEDI
+    name: 한국교육개발원
+    ministry: 국무조정실(경제·인문사회연구회)
+    home: https://www.kedi.re.kr
+    board_urls: {}
+
+# 기관 사이트 외 수집 경로 후보
+aggregators:
+  - id: ALIO
+    name: 공공기관 경영정보 공개시스템
+    home: https://www.alio.go.kr
+  - id: KOREA_KR
+    name: 정책브리핑
+    home: https://www.korea.kr
+    rss: https://www.korea.kr/rss/pressrelease.xml
+
+# 홈페이지 메뉴에서 게시판 후보를 찾을 때 쓰는 링크 텍스트
+board_keywords:
+  press: [보도자료, 언론보도]
+  notice: [공지사항, 공지]
+  disclosure: [경영공시, 경영정보, 사업계획, 경영목표, 정보공개]
+  bid: [입찰, 사업공고, 조달]

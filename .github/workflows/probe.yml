@@ -1,0 +1,36 @@
+name: probe-sites
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "probe/**"
+      - "config/sources.yaml"
+      - ".github/workflows/probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -r probe/requirements.txt
+      - name: Runner IP
+        run: curl -s https://ipinfo.io/json || true
+      - name: Probe
+        run: python probe/probe_sites.py
+      - name: Summary
+        if: always()
+        run: test -f out/probe.md && cat out/probe.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-result
+          path: out/
