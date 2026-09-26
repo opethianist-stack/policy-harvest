@@ -1,12 +1,36 @@
 # 수집 대상 기관 설정
-# 정책문서만 수집한다. 입찰·사업공고·공지는 Policy Fit에서 다룬다(docs/handoff-policy-fit.md).
-# boards: 게시판 목록. kind는 press(보도자료) disclosure(경영공시·경영목표·사업계획)
+# 정책문서만 수집한다. 입찰·사업공고는 Policy Fit에서 다룬다(docs/handoff-policy-fit.md).
+# category: 파일명의 "분류" 값(부처 / 공공기관)
+# file_org: 파일명의 "기관" 값. Policy Fit data/org-rules.json 의 별칭과 맞아야 한다
+# boards: 게시판 목록. kind는 press(보도자료) policy(정책자료) notice(공지사항) disclosure(경영공시·경영목표·사업계획)
 #   source: user(담당자 확인) / probe(사전 조사에서 찾음)
 #   비어 있으면 probe가 홈페이지 메뉴에서 후보를 찾는다.
 # ministry: 주무부처. KEDI는 국무조정실 경제·인문사회연구회 소관이다(교육 분야 연구기관).
 
 agencies:
+  # ── 부처 ──
+  - id: MSIT
+    name: 과학기술정보통신부
+    category: 부처
+    file_org: 과기정통부
+    home: https://www.msit.go.kr
+    # 게시판 대신 공공데이터포털 API(DATA_GO_KR_KEY)로 받는다. 한 페이지 최대 10건, 키워드 검색 없음.
+    # 첨부는 대부분 hwpx+odt 쌍. Policy Fit 색인은 odt를 읽지 않으므로 hwpx를 보낸다.
+    api:
+      - {kind: press, url: "https://apis.data.go.kr/1721000/msitpressreleaseinfo/pressReleaseList"}
+      - {kind: policy, url: "https://apis.data.go.kr/1721000/msitmainpolicyinfo/mainPolicyList"}
+    boards: []
+  - id: MOE
+    name: 교육부
+    category: 부처
+    file_org: 교육부
+    home: https://www.moe.go.kr
+    boards: []  # 오픈API 없음. 보도자료·정책자료 게시판 주소 확인 필요(probe가 홈 메뉴에서 후보를 찾는다)
+
+  # ── 공공기관 ──
   - id: NIPA
+    category: 공공기관
+    file_org: NIPA
     name: 정보통신산업진흥원
     ministry: 과학기술정보통신부
     home: https://www.nipa.kr
@@ -14,18 +38,28 @@ agencies:
       - {kind: press, source: probe, url: "https://www.nipa.kr/home/4-4-1"}
       - {kind: disclosure, source: probe, url: "https://www.nipa.kr/home/3-2"}
   - id: NIA
+    category: 공공기관
+    file_org: NIA
     name: 한국지능정보사회진흥원
     ministry: 과학기술정보통신부
     home: https://www.nia.or.kr
     boards:
       - {kind: press, source: user, url: "https://www.nia.or.kr/site/nia_kor/ex/bbs/List.do?cbIdx=90549"}
+      # 업무계획은 별도 공시 없이 공지사항에 올라온다. 공지 전체를 받고 분류에서 정책문서만 남긴다.
+      - {kind: notice, source: user, url: "https://www.nia.or.kr/site/nia_kor/ex/bbs/List.do?cbIdx=99835"}
   - id: KERIS
+    category: 공공기관
+    file_org: KERIS
     name: 한국교육학술정보원
     ministry: 교육부
     home: https://www.keris.or.kr
     boards:
       - {kind: press, source: user, url: "https://www.keris.or.kr/main/na/ntt/selectNttList.do?mi=1088&bbsId=1090"}
+      # 업무계획은 별도 공시 없이 공지사항에 올라온다. 공지 전체를 받고 분류에서 정책문서만 남긴다.
+      - {kind: notice, source: user, url: "https://www.keris.or.kr/main/na/ntt/selectNttList.do?mi=1051&bbsId=1088"}
   - id: KOSAC
+    category: 공공기관
+    file_org: KOSAC
     name: 한국과학창의재단
     former_ids: [KOFAC]  # 2025년 명칭 변경 전 약칭. 과거 문서·알리오 자료에 남아 있을 수 있다.
     ministry: 과학기술정보통신부
@@ -35,6 +69,8 @@ agencies:
       - {kind: disclosure, source: probe, url: "https://www.kosac.re.kr/menus/331/contents/331"}
       - {kind: disclosure, source: probe, url: "https://www.kosac.re.kr/menus/208/contents/208"}
   - id: KEDI
+    category: 공공기관
+    file_org: KEDI
     name: 한국교육개발원
     ministry: 국무조정실(경제·인문사회연구회)
     home: https://www.kedi.re.kr
@@ -61,4 +97,5 @@ aggregators:
 # 홈페이지 메뉴에서 게시판 후보를 찾을 때 쓰는 링크 텍스트
 board_keywords:
   press: [보도자료, 언론보도]
+  policy: [정책자료, 업무계획, 주요정책, 정책브리핑]
   disclosure: [경영공시, 경영정보, 사업계획, 경영목표, 정보공개]

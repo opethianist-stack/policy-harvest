@@ -1,6 +1,8 @@
 # Policy Fit 인계: 산하기관 입찰·사업공고·공지 게시판
 
-policy-harvest는 정책문서(보도자료·업무계획·경영목표·사업계획)만 수집한다. 아래 공고성 게시판은 Policy Fit에서 공고 소스로 검토한다.
+policy-harvest는 정책문서(보도자료·업무계획·기본계획·경영목표·사업계획)만 수집한다. 아래 공고성 게시판은 Policy Fit에서 공고 소스로 검토한다.
+
+NIA·KERIS 공지사항은 업무계획이 올라오는 곳이라 policy-harvest도 수집한다. 다만 policy-harvest는 공지 중 정책문서만 남기고 사업 모집 공지는 버리므로, 공고로서의 수집은 Policy Fit에서 따로 해야 한다.
 
 ## 게시판 목록
 
@@ -42,5 +44,5 @@ KOSAC은 한국과학창의재단의 현재 약칭이다(2025년 KOFAC에서 변
 게시판 주소와 접속·구조 조사 결과는 opethianist-stack/policy-harvest 레포의 docs/handoff-policy-fit.md에 있어.
 - 나라장터 API로 이미 잡히는 입찰공고와 겹치는지 먼저 확인해줘(기관 게시판에만 있는 공고가 얼마나 되는지)
 - KERIS 공지사항의 연수 사업 모집처럼 나라장터에 안 올라오는 사업 공지를 어떻게 잡을지 정해줘
-- CLAUDE.md의 정책문서 수집 프로젝트 소개에서 KOFAC→KOSAC, KICE 제외, 수집 범위(정책문서만)를 고쳐줘
+- CLAUDE.md의 정책문서 수집 프로젝트 소개에서 KOFAC→KOSAC, KICE 제외, 수집 범위(부처·공공기관 정책문서, 공고 제외)를 고쳐줘
 ```
