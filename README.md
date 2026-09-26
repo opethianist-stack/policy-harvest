@@ -28,6 +28,8 @@
 config/sources.yaml          수집 대상 기관·게시판 설정
 probe/                       1단계 사전 조사 스크립트
 .github/workflows/probe.yml  사전 조사 워크플로 (Actions 러너에서 접속 확인)
+docs/research.md             1단계 사전 조사 결과
+docs/design.md               설계 (초안)
 ```
 
 ## 진행 단계
