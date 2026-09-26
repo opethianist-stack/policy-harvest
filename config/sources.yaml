@@ -3,7 +3,7 @@
 # category: 파일명의 "분류" 값(부처 / 공공기관)
 # file_org: 파일명의 "기관" 값. Policy Fit data/org-rules.json 의 별칭과 맞아야 한다
 # boards: 게시판 목록. kind는 press(보도자료) policy(정책자료) notice(공지사항) disclosure(경영공시·경영목표·사업계획)
-#   source: user(담당자 확인) / probe(사전 조사에서 찾음)
+#   source: user(담당자 확인) / probe(사전 조사에서 찾음) / search(웹 검색 결과에서 찾음)
 #   비어 있으면 probe가 홈페이지 메뉴에서 후보를 찾는다.
 # ministry: 주무부처. KEDI는 국무조정실 경제·인문사회연구회 소관이다(교육 분야 연구기관).
 
@@ -35,6 +35,25 @@ agencies:
       - {kind: press, source: probe, url: "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe"}
       - {kind: policy, source: probe, url: "https://www.moe.go.kr/sub/infoRenew.do?page=72762&m=031101&s=moe"}      # 올해 업무계획(첨부 4)
       - {kind: policy, source: probe, url: "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=72713&renew=72713&m=031102&s=moe"}  # 2025년 이전 주요업무계획
+  - id: MOEL
+    name: 고용노동부
+    category: 부처
+    file_org: 고용노동부
+    home: https://www.moel.go.kr
+    boards:
+      - {kind: press, source: search, url: "https://www.moel.go.kr/news/enews/report/enewsList.do"}
+      - {kind: policy, source: search, url: "https://www.moel.go.kr/policy/policydata/list.do"}   # 정책자료실(업무계획·업무보고 원문)
+      - {kind: policy, source: search, url: "https://www.moel.go.kr/policy/busireport/main.do"}  # 업무보고
+  - id: NAISC
+    name: 국가인공지능전략위원회
+    category: 부처
+    file_org: 국가AI전략위   # Policy Fit 별칭 등록됨
+    home: https://www.aikorea.go.kr/web/main.do
+    # 게시판은 menu_cd로 구분. 000011에 인공지능 행동계획 원문이 올라와 있다(검색 결과로 확인)
+    boards:
+      - {kind: press, source: search, url: "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000018"}
+      - {kind: policy, source: search, url: "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000011"}
+      - {kind: policy, source: search, url: "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000014"}  # 정책 보고서
 
   # ── 공공기관 ──
   - id: NIPA
