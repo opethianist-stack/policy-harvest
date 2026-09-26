@@ -32,6 +32,9 @@ DELAY = 1.0
 MAX_CANDIDATES = 10
 MAX_FEEDS = 15
 SITEMAP_WORDS = ("사이트맵", "sitemap", "전체메뉴")
+JS_REDIRECT_RE = re.compile(
+    r"""(?:window\.|document\.|top\.|self\.)?location(?:\.href)?\s*(?:=|\.replace\(|\.assign\()\s*['"]([^'"]+)['"]"""
+)
 
 DATE_RE = re.compile(r"20\d{2}[.\-/]\s?\d{1,2}[.\-/]\s?\d{1,2}")
 ATTACH_RE = re.compile(r"\.(hwp|hwpx|pdf|docx?|xlsx?|zip)\b|download|fileDown|atchFile", re.I)
@@ -161,6 +164,8 @@ def link_inventory(base: str, html: str, keywords: dict[str, list[str]]) -> dict
     if refresh and "url=" in (refresh.get("content") or "").lower():
         refresh_url = urljoin(base, refresh["content"].split("=", 1)[1].strip(" '\""))
     frames = [urljoin(base, f["src"]) for f in soup.find_all(["frame", "iframe"], src=True)]
+    m = JS_REDIRECT_RE.search(html)
+    js_redirect = urljoin(base, m.group(1)) if m else None
     raw_hits = {k: sum(html.count(w) for w in words) for k, words in keywords.items()}
     return {
         "anchors": len(anchors),
@@ -169,6 +174,8 @@ def link_inventory(base: str, html: str, keywords: dict[str, list[str]]) -> dict
         "raw_keyword_hits": raw_hits,
         "sitemap": sitemap,
         "meta_refresh": refresh_url,
+        "js_redirect": js_redirect,
+        "html_head": html[:800] if len(anchors) < 5 else "",
         "frames": frames[:5],
     }
 
@@ -239,7 +246,7 @@ def probe_agency(a: dict, keywords: dict[str, list[str]]) -> dict:
     inv = link_inventory(base, home_html, keywords)
 
     # 링크가 거의 없고 프레임·meta refresh만 있는 홈이면 실제 첫 화면을 따라간다
-    nxt = inv["meta_refresh"] or (inv["frames"][0] if inv["frames"] else None)
+    nxt = inv["meta_refresh"] or inv["js_redirect"] or (inv["frames"][0] if inv["frames"] else None)
     if nxt and inv["anchors"] < 10:
         time.sleep(DELAY)
         f2, html2 = fetch(nxt)
@@ -335,7 +342,15 @@ def probe_aggregator(g: dict) -> dict:
     for idx in g.get("rss_index") or []:
         time.sleep(DELAY)
         fi, hi = fetch(idx)
-        res["rss_index"].append(asdict(fi))
+        entry = asdict(fi)
+        if hi:
+            soup = BeautifulSoup(hi, "html.parser")
+            entry["rss_links"] = [
+                {"text": a.get_text(" ", strip=True)[:40], "href": (a.get("href") or "")[:200], "onclick": (a.get("onclick") or "")[:200]}
+                for a in soup.find_all("a")
+                if re.search(r"rss|xml", (a.get("href") or "") + (a.get("onclick") or "") + a.get_text(), re.I)
+            ][:40]
+        res["rss_index"].append(entry)
         if hi:
             dump_html(f"{g['id']}_rss_index", hi)
             feeds += discover_feeds(fi.final_url or idx, hi)
@@ -373,6 +388,10 @@ def to_markdown(data: dict) -> str:
             L.append(f"- 사용한 홈: {used} (저장: {a.get('home_dump_followed') or a.get('home_dump')})")
             L.append(f"- 링크 {inv['anchors']}개, 그중 JS 링크 {inv['js_anchors']}개, 프레임 {len(inv['frames'])}개")
             L.append(f"- HTML 원문 속 키워드 빈도: {inv['raw_keyword_hits']}")
+            if a.get("home_followed"):
+                L.append(f"- 첫 화면 이동: {a['home']['final_url']} → {fmt_fetch(a['home_followed'])} ({a['home_followed']['url']})")
+            if inv["html_head"]:
+                L += ["- 홈 HTML 앞부분 (링크가 거의 없어 원문 확인용):", "", "```html", inv["html_head"], "```", ""]
             sm = a.get("sitemap")
             L.append(f"- 사이트맵: {inv['sitemap'] or '링크 없음'}" + (f" → {fmt_fetch(sm)}" if sm else ""))
             kls = inv["keyword_links"] + (a.get("sitemap_links") or {}).get("keyword_links", [])
@@ -398,7 +417,9 @@ def to_markdown(data: dict) -> str:
     for g in data["aggregators"]:
         L.append(f"- {g['id']} {g['name']}: 홈 {fmt_fetch(g['home'])}, robots {fmt_fetch(g['robots']['fetch'])}")
         for idx in g.get("rss_index", []):
-            L.append(f"  - RSS 목록 페이지: {idx['url']} → {fmt_fetch(idx)}")
+            L.append(f"  - RSS 목록 페이지: {idx['url']} → {fmt_fetch(idx)}, rss/xml 관련 링크 {len(idx.get('rss_links', []))}개")
+            for rl in idx.get("rss_links", [])[:25]:
+                L.append(f"    - {rl['text']} | href=`{rl['href'][:120]}`" + (f" onclick=`{rl['onclick'][:80]}`" if rl["onclick"] else ""))
         if g.get("feeds_found") is not None:
             L.append(f"  - 찾은 피드 {len(g['feeds_found'])}개 (앞 {MAX_FEEDS}개 확인)")
         for rss in g.get("feeds", []):

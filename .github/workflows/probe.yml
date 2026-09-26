@@ -24,6 +24,16 @@ jobs:
         run: pip install -r probe/requirements.txt
       - name: Runner IP
         run: curl -s https://ipinfo.io/json || true
+      - name: DNS check
+        run: |
+          for h in www.kofac.re.kr kofac.re.kr www.kofac.or.kr; do
+            echo "== $h"
+            echo "system: $(getent hosts $h || echo none)"
+            for ns in 8.8.8.8 1.1.1.1 168.126.63.1; do
+              echo "@$ns: $(dig +short +time=3 +tries=1 @$ns $h A 2>&1 | tr '\n' ' ')"
+            done
+            echo "NS: $(dig +short +time=3 +tries=1 @8.8.8.8 ${h#www.} NS 2>&1 | tr '\n' ' ')"
+          done
       - name: Probe
         run: python probe/probe_sites.py
       - name: Summary
