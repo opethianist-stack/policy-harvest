@@ -180,25 +180,18 @@ class Source:
 - 문서명에서 `_`와 파일명 금지 문자는 지운다
 - 같은 이름이 이미 있으면 올리지 않고 `실패(중복)`로 기록한다
 
-### 인증 (결정 필요)
+### 인증: 부서 계정 OAuth (A안, 2026-09-26 결정)
 
-폴더는 부서 공통 gmail 계정의 내 드라이브에 있다. 서비스 계정은 저장 용량이 없어서, 개인 계정 폴더에 편집 권한을 받아도 새 파일을 만들 때 `storageQuotaExceeded`로 실패하는 경우가 많다(Policy Fit은 읽기 전용이라 이 문제가 없었다). 선택지:
-
-| 방식 | 장점 | 단점 |
-|---|---|---|
-| A. 부서 gmail 계정의 OAuth 리프레시 토큰을 Secrets에 저장 | 코드가 레포 안에서 끝난다. 파일 소유자가 부서 계정 | 토큰 발급 절차 1회 필요. 계정 비밀번호 변경 시 재발급 |
-| B. 시트에 붙인 Apps Script가 승인 행을 받아 업로드 | 부서 계정 권한으로 실행되어 인증 문제 없음 | 업로드 로직이 레포 밖(Apps Script)에 생긴다 |
-| C. 공유 드라이브로 폴더 이전 | 서비스 계정으로 쓰기 가능 | 일반 gmail 계정은 공유 드라이브를 만들 수 없다 |
-
-A를 추천한다. 구현 전에 서비스 계정 업로드를 한 번 시험해 보고, 되면 서비스 계정을 쓴다.
+- 폴더는 부서 공통 gmail 계정의 내 드라이브에 있다. 서비스 계정은 저장 용량이 없어 새 파일을 만들 수 없고, Policy Fit이 쓰는 서비스 계정은 폴더에 뷰어로만 공유돼 있다(읽기 전용 유지)
+- 부서 계정의 리프레시 토큰으로 드라이브·시트를 쓴다. 올린 파일의 소유자는 부서 계정
+- 코드: `harvest/google_auth.py`, `harvest/drive.py`. 설정 절차: `docs/setup-oauth.md`. 확인: `drive-check` 워크플로
 
 ## 9. 비밀값
 
 | 이름 | 용도 | 위치 |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | 분류 | Actions Secrets |
-| `GDRIVE_SA_KEY` | 시트 읽기·쓰기(시트를 서비스 계정에 공유) | Actions Secrets. 작업 환경에는 있음 |
-| `GDRIVE_OAUTH_TOKEN` | 드라이브 업로드(방식 A일 때) | Actions Secrets |
+| `GOOGLE_OAUTH_CLIENT_ID`·`GOOGLE_OAUTH_CLIENT_SECRET`·`GOOGLE_OAUTH_REFRESH_TOKEN` | 드라이브 업로드, 승인 시트 읽기·쓰기(부서 계정) | Actions Secrets |
 | `SHEET_ID` | 승인 시트 | Actions Variables(비밀 아님) |
 | `ALIO_*_KEY` | 2차 알리오플러스 연동 | Actions Secrets |
 
@@ -215,7 +208,6 @@ A를 추천한다. 구현 전에 서비스 계정 업로드를 한 번 시험해
 
 | 항목 | 제안 |
 |---|---|
-| 드라이브 업로드 인증 | A(부서 계정 OAuth 토큰). 서비스 계정 시험 후 확정 |
 | 승인 시트 소유 계정 | 부서 공통 gmail 계정 |
 | 첫 실행 수집 범위 | 게시판당 최근 3페이지 |
 | 수집 요일·시각 | 월 06:00 KST |
