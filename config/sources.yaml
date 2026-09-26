@@ -19,12 +19,11 @@ agencies:
     ministry: 교육부
     home: https://www.keris.or.kr
     board_urls: {}
-  - id: KOFAC
+  - id: KOSAC
     name: 한국과학창의재단
+    former_ids: [KOFAC]  # 2025년 명칭 변경 전 약칭. 과거 문서·알리오 자료에 남아 있을 수 있다.
     ministry: 과학기술정보통신부
-    home: https://www.kofac.re.kr
-    # www 주소가 러너에서 DNS 조회 실패(2026-09-26). 대체 주소를 차례로 시도한다.
-    alt_homes: [https://kofac.re.kr, http://www.kofac.re.kr, https://www.kofac.or.kr]
+    home: https://www.kosac.re.kr/main
     board_urls: {}
   - id: KICE
     name: 한국교육과정평가원
