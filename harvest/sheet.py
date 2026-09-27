@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import requests
 
@@ -17,6 +18,7 @@ FIELDS = (
     "att_name", "att_url", "recommend", "doc_type", "topics", "reason", "doc_name", "kind", "year",
 )
 BATCH = 200
+RETRIES = 3  # 시트가 중복을 걸러주므로 다시 보내도 안전하다
 
 
 def missing_env() -> list[str]:
@@ -34,16 +36,29 @@ def post_rows(rows: list[dict], session: requests.Session | None = None) -> dict
     s = session or requests.Session()
     total = {"added": 0, "skipped": 0}
     for i in range(0, len(rows), BATCH):
-        # Apps Script 웹 앱은 302로 결과 주소를 돌려준다. requests는 따라가며 GET으로 바꾼다
-        res = s.post(
-            os.environ["SHEET_WEBHOOK_URL"].strip(),
-            json={"token": os.environ["SHEET_WEBHOOK_TOKEN"].strip(), "rows": rows[i:i + BATCH]},
-            timeout=60,
-        )
-        res.raise_for_status()
-        data = res.json()
+        data = _post_batch(s, rows[i:i + BATCH])
         if not data.get("ok"):
             raise RuntimeError(f"시트 응답 오류: {data.get('error')}")
         total["added"] += data.get("added", 0)
         total["skipped"] += data.get("skipped", 0)
     return total
+
+
+def _post_batch(s, batch: list[dict], sleep=time.sleep) -> dict:
+    """한 묶음 전송. 웹 앱 결과 주소가 404·5xx를 주는 경우가 있어 몇 번 다시 보낸다."""
+    last_err = None
+    for attempt in range(RETRIES):
+        try:
+            # Apps Script 웹 앱은 302로 결과 주소를 돌려준다. requests는 따라가며 GET으로 바꾼다
+            res = s.post(
+                os.environ["SHEET_WEBHOOK_URL"].strip(),
+                json={"token": os.environ["SHEET_WEBHOOK_TOKEN"].strip(), "rows": batch},
+                timeout=90,
+            )
+            res.raise_for_status()
+            return res.json()
+        except (requests.RequestException, ValueError) as e:
+            last_err = e
+            if attempt + 1 < RETRIES:
+                sleep(5 * (attempt + 1))
+    raise RuntimeError(f"시트 전송 실패({RETRIES}회): {last_err}")

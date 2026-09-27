@@ -48,3 +48,30 @@ def test_post_rows_needs_env(monkeypatch):
     monkeypatch.delenv("SHEET_WEBHOOK_URL", raising=False)
     with pytest.raises(RuntimeError):
         sheet.post_rows([])
+
+
+class FlakySession(FakeSession):
+    def __init__(self, fails):
+        super().__init__()
+        self.fails = fails
+
+    def post(self, url, json, timeout):
+        if self.fails:
+            self.fails -= 1
+            import requests
+            raise requests.HTTPError("404 Client Error")
+        return super().post(url, json, timeout)
+
+
+def test_post_batch_retries(monkeypatch):
+    monkeypatch.setenv("SHEET_WEBHOOK_URL", "u")
+    monkeypatch.setenv("SHEET_WEBHOOK_TOKEN", "t")
+    s = FlakySession(fails=2)
+    assert sheet._post_batch(s, [{"post_key": "a"}], sleep=lambda _: None) == {"ok": True, "added": 1, "skipped": 0}
+
+
+def test_post_batch_gives_up(monkeypatch):
+    monkeypatch.setenv("SHEET_WEBHOOK_URL", "u")
+    monkeypatch.setenv("SHEET_WEBHOOK_TOKEN", "t")
+    with pytest.raises(RuntimeError):
+        sheet._post_batch(FlakySession(fails=5), [{"post_key": "a"}], sleep=lambda _: None)
