@@ -108,16 +108,28 @@ function sheet_() {
   return sh;
 }
 
+/** 마지막 데이터 행. 체크박스(FALSE)만 있는 빈 행은 세지 않고 '글 키' 열로 판단한다 */
+function lastDataRow_(sh) {
+  var last = sh.getLastRow();
+  if (last < 2) return 1;
+  var keys = sh.getRange(2, col_('글 키'), last - 1, 1).getValues();
+  for (var i = keys.length - 1; i >= 0; i--) if (keys[i][0] !== '') return i + 2;
+  return 1;
+}
+
 function col_(label) {
   for (var i = 0; i < COLUMNS.length; i++) if (COLUMNS[i][0] === label) return i + 1;
   throw new Error('열 없음: ' + label);
 }
 
-/** 처음 한 번 실행: 탭·머리행·승인 체크박스·매일 01시 트리거를 만든다 */
+/** 처음 한 번 실행: 탭·머리행·매일 01시 트리거·TOKEN을 만든다. 다시 실행해도 된다 */
 function setup() {
   var sh = sheet_();
-  var rule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
-  sh.getRange(2, col_('승인'), sh.getMaxRows() - 1, 1).setDataValidation(rule);
+  // 데이터가 없는 행의 승인 체크박스를 지운다(예전 setup이 빈 행 전체에 깔아 새 행이 1001행에 붙던 문제)
+  var lastData = lastDataRow_(sh);
+  if (sh.getMaxRows() > lastData) {
+    sh.getRange(lastData + 1, col_('승인'), sh.getMaxRows() - lastData, 1).clearDataValidations().clearContent();
+  }
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'deliverApproved') ScriptApp.deleteTrigger(t);
   });
@@ -148,7 +160,7 @@ function doPost(e) {
   lock.waitLock(30000);
   try {
     var sh = sheet_();
-    var last = sh.getLastRow();
+    var last = lastDataRow_(sh);
     var seen = {};
     if (last > 1) {
       var keys = sh.getRange(2, col_('글 키'), last - 1, 1).getValues();
@@ -168,7 +180,7 @@ function doPost(e) {
       added++;
     });
     if (rows.length) {
-      var start = sh.getLastRow() + 1;
+      var start = lastDataRow_(sh) + 1;
       sh.getRange(start, 1, rows.length, COLUMNS.length).setValues(rows);
       sh.getRange(start, col_('승인'), rows.length, 1)
         .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
@@ -183,7 +195,7 @@ function doPost(e) {
 
 function deliverApproved() {
   var sh = sheet_();
-  var last = sh.getLastRow();
+  var last = lastDataRow_(sh);
   if (last < 2) return;
   var data = sh.getRange(2, 1, last - 1, COLUMNS.length).getValues();
   var c = function (label) { return col_(label) - 1; };

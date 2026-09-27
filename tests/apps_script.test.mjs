@@ -37,3 +37,20 @@ test('assignNumbers groups rows of the same post', () => {
     Array.from(ctx.assignNumbers(['A', 'B', 'A', 'C'], 20)),
     ['20-1', '21', '20-2', '22']);
 });
+
+test('lastDataRow_ ignores checkbox-only rows', () => {
+  // 1행 머리, 2~3행 데이터, 4~1000행은 체크박스(FALSE)만 있는 빈 행, 1001행 데이터
+  const keyCol = ctx.col_('글 키');
+  const rows = { 2: 'A', 3: 'B', 1001: 'C' };
+  const fake = (last) => ({
+    getLastRow: () => last,
+    getRange: (r, c, n) => {
+      assert.equal(c, keyCol);
+      return { getValues: () => Array.from({ length: n }, (_, i) => [rows[r + i] ?? '']) };
+    },
+  });
+  assert.equal(ctx.lastDataRow_(fake(1001)), 1001);
+  delete rows[1001];
+  assert.equal(ctx.lastDataRow_(fake(1000)), 3);
+  assert.equal(ctx.lastDataRow_(fake(1)), 1);
+});
