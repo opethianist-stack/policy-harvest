@@ -1,4 +1,5 @@
 name: sheet-check
+# 승인 시트 연결 확인: 시험 행 1개를 두 번 보낸다(두 번째는 중복으로 건너뛰어야 한다)
 
 on:
   workflow_dispatch:
