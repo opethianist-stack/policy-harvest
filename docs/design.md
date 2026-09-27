@@ -46,15 +46,15 @@ NIA·KERIS는 업무계획을 별도로 공시하지 않고 공지사항에 올�
 [담당자] 시트에서 확인
   추천 분류·문서명 확인, 필요하면 수정, 승인 칸 체크
 
-[매일 01:00 KST] deliver 워크플로
-  승인 행 읽기 → 원본 첨부 다운로드 → 파일명 생성 → 드라이브 업로드
+[매일 01:00 KST] 승인 시트의 Apps Script (deliverApproved)
+  승인 행 읽기 → 원본 첨부 다운로드 → 파일명 생성 → 드라이브 저장
   → 시트에 전송 결과 기록
 
 [매일 03:00 KST] Policy Fit sync-corpus (기존)
   폴더 색인
 ```
 
-deliver를 01:00에 두면 승인한 파일이 그날 새벽 Policy Fit 색인에 들어간다. 수동 실행(`workflow_dispatch`)도 열어 둔다.
+01:00에 저장하면 승인한 파일이 그날 새벽 Policy Fit 색인에 들어간다. 급하면 Apps Script 편집기에서 `deliverApproved`를 바로 실행한다.
 
 ## 4. 저장소 구성
 
@@ -67,14 +67,13 @@ harvest/
     moe.py                 교육부(사이트)
     nipa.py nia.py keris.py kosac.py kedi.py
   classify.py              LLM 분류
-  sheet.py                 구글 시트 읽기·쓰기
-  drive.py                 드라이브 업로드, 번호 매기기
+  sheet.py                 승인 시트로 행 보내기(Apps Script 웹 앱)
   naming.py                파일명 규칙
   collect.py               collect 진입점
-  deliver.py               deliver 진입점
 tests/fixtures/            기관별 저장 HTML(수집기 파서 시험용)
 .github/workflows/
-  collect.yml  deliver.yml  probe.yml
+  collect.yml  probe.yml  tests.yml
+apps-script/Code.gs        승인 시트 스크립트(행 추가, 승인분 드라이브 저장)
 docs/
 ```
 
@@ -159,9 +158,9 @@ class Source:
 | 구분 | LLM → 담당자 | 별첨·보도 등. 비워도 됨 |
 | 연도 | LLM → 담당자 | 수정 가능 |
 | 승인 | 담당자 | 체크박스 |
-| 상태 | deliver | 대기 / 전송 완료 / 실패(사유) |
-| 파일명 | deliver | 실제로 올린 파일명 |
-| 드라이브 링크 | deliver | |
+| 상태 | Apps Script | 대기 / 전송 완료 / 실패(사유) |
+| 파일명 | Apps Script | 실제로 올린 파일명 |
+| 드라이브 링크 | Apps Script | |
 
 - `추천=포함`이고 대표 첨부인 행을 위로 정렬하고, `제외`는 회색으로 표시한다
 - 승인은 담당자 체크로만 바뀐다. 수집기·LLM은 승인 칸을 쓰지 않는다
@@ -180,19 +179,21 @@ class Source:
 - 문서명에서 `_`와 파일명 금지 문자는 지운다
 - 같은 이름이 이미 있으면 올리지 않고 `실패(중복)`로 기록한다
 
-### 인증: 부서 계정 OAuth (A안, 2026-09-26 결정)
+### 업로드 주체: 승인 시트의 Apps Script (B안, 2026-09-27 결정)
 
-- 폴더는 부서 공통 gmail 계정의 내 드라이브에 있다. 서비스 계정은 저장 용량이 없어 새 파일을 만들 수 없고, Policy Fit이 쓰는 서비스 계정은 폴더에 뷰어로만 공유돼 있다(읽기 전용 유지)
-- 부서 계정의 리프레시 토큰으로 드라이브·시트를 쓴다. 올린 파일의 소유자는 부서 계정
-- 코드: `harvest/google_auth.py`, `harvest/drive.py`. 설정 절차: `docs/setup-oauth.md`. 확인: `drive-check` 워크플로
+- 폴더는 부서 공통 gmail 계정의 내 드라이브에 있다. 서비스 계정은 저장 용량이 없어 새 파일을 만들 수 없고, 부서 계정에 OAuth 앱을 등록·게시하는 A안은 관리 부담이 커서 쓰지 않는다
+- 승인 시트(부서 계정 소유)에 붙인 Apps Script가 부서 계정 권한으로 원본을 받아 폴더에 저장한다. 올린 파일의 소유자는 부서 계정
+- 수집기는 시트에 행만 보낸다(Apps Script 웹 앱 `doPost`, 공유 TOKEN으로 확인)
+- 번호: 폴더 파일명의 맨 앞 번호 최댓값 + 1. 같은 글에서 두 개 이상 승인하면 `20-1`, `20-2`
+- Apps Script `UrlFetchApp` 응답 한도는 50MB다. 그보다 큰 파일(예: 광주 주요업무계획 98MB)은 실패로 표시되고 담당자가 직접 넣는다
+- 코드: `apps-script/Code.gs`(원본은 레포), `harvest/sheet.py`. 설정 절차: `docs/setup-apps-script.md`
 
 ## 9. 비밀값
 
 | 이름 | 용도 | 위치 |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | 분류 | Actions Secrets |
-| `GOOGLE_OAUTH_CLIENT_ID`·`GOOGLE_OAUTH_CLIENT_SECRET`·`GOOGLE_OAUTH_REFRESH_TOKEN` | 드라이브 업로드, 승인 시트 읽기·쓰기(부서 계정) | Actions Secrets |
-| `SHEET_ID` | 승인 시트 | Actions Variables(비밀 아님) |
+| `SHEET_WEBHOOK_URL`·`SHEET_WEBHOOK_TOKEN` | 수집기 → 승인 시트 행 전송 | Actions Secrets |
 | `ALIO_*_KEY` | 2차 알리오플러스 연동 | Actions Secrets |
 
 ## 10. 구현 순서
@@ -201,7 +202,7 @@ class Source:
 2. 시트 연동: 시트 생성·서비스 계정 공유, 행 추가·중복 판별
 3. 분류: 프롬프트·스키마, 지난 글 수십 건으로 추천 결과 점검
 4. collect 워크플로 주간 실행
-5. 드라이브 인증 방식 확정 후 deliver
+5. 승인 시트·Apps Script 설정(`docs/setup-apps-script.md`) 후 승인분 저장 시험
 6. 경영공시 페이지 첨부 변경 감지
 
 ## 11. 결정이 필요한 것

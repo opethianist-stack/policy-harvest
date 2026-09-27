@@ -32,14 +32,14 @@
 ```
 config/sources.yaml          수집 대상 기관·게시판 설정
 probe/                       1단계 사전 조사 스크립트
-harvest/                     수집·파일명·드라이브 모듈
-scripts/drive_check.py       드라이브 쓰기 확인 (drive-check 워크플로)
+harvest/                     수집기 모듈(파일명 규칙, 승인 시트 전송)
+apps-script/Code.gs          승인 시트 스크립트(행 추가, 승인분 드라이브 저장)
 .github/workflows/probe.yml  사전 조사 워크플로 (Actions 러너에서 접속 확인)
 docs/research.md             1단계 사전 조사 결과
 docs/design.md               설계 (초안)
 docs/handoff-policy-fit.md   Policy Fit으로 넘긴 공고 게시판 정보
 docs/edu-offices-2026.md     시도교육청 2026 주요업무계획 위치·파일명
-docs/setup-oauth.md          드라이브·시트 인증 설정
+docs/setup-apps-script.md    승인 시트·드라이브 업로드 설정
 ```
 
 ## 진행 단계
