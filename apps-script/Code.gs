@@ -209,6 +209,8 @@ function doPost(e) {
   var token = PropertiesService.getScriptProperties().getProperty('TOKEN');
   if (!token || body.token !== token) return json_({ ok: false, error: '토큰 불일치' });
   if (body.action === 'keys') return json_({ ok: true, keys: postKeys_() });
+  if (body.action === 'failed_keys') return json_({ ok: true, keys: failedKeys_() });
+  if (body.action === 'update') return withLock_(function () { return json_(updateRows_(body.rows || [])); });
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -235,14 +237,132 @@ function doPost(e) {
     });
     if (rows.length) {
       var start = lastDataRow_(sh) + 1;
+      var need = start + rows.length - 1 - sh.getMaxRows();
+      if (need > 0) sh.insertRowsAfter(sh.getMaxRows(), need); // 시트 행 수(기본 1000)를 넘으면 늘린다
       sh.getRange(start, 1, rows.length, COLUMNS.length).setValues(rows);
       sh.getRange(start, col_('승인'), rows.length, 1)
         .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+      if (sh.getFilter()) showReview_(sh); // 검토 보기가 켜져 있으면 새 행에도 적용한다
     }
     return json_({ ok: true, added: added, skipped: skipped });
   } finally {
     lock.releaseLock();
   }
+}
+
+function withLock_(fn) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 분류하지 못한(추천이 '검토 필요'인) 대기 행의 글 키. 수집기가 다시 분류할 때 쓴다 */
+function failedKeys_() {
+  var sh = sheet_();
+  var last = lastDataRow_(sh);
+  if (last < 2) return [];
+  var data = sh.getRange(2, 1, last - 1, COLUMNS.length).getValues();
+  var c = function (label) { return col_(label) - 1; };
+  var seen = {};
+  data.forEach(function (row) {
+    if (row[c('추천')] === '검토 필요' && row[c('상태')] === '대기' && row[c('승인')] !== true) seen[row[c('글 키')]] = true;
+  });
+  return Object.keys(seen);
+}
+
+// 다시 분류한 결과로 바꾸는 열. 승인하지 않은 대기 행만 바꾼다
+var UPDATE_FIELDS = ['추천', '문서 유형', '주제', '추천 이유', '문서명', '구분', '연도'];
+
+function updateRows_(rows) {
+  var sh = sheet_();
+  var last = lastDataRow_(sh);
+  if (last < 2) return { ok: true, updated: 0 };
+  var data = sh.getRange(2, 1, last - 1, COLUMNS.length).getValues();
+  var c = function (label) { return col_(label) - 1; };
+  var index = {};
+  data.forEach(function (row, i) { index[row[c('글 키')] + '|' + row[c('첨부 URL')]] = i; });
+  var updated = 0;
+  rows.forEach(function (r) {
+    var i = index[r.post_key + '|' + (r.att_url || '')];
+    if (i === undefined || data[i][c('상태')] !== '대기' || data[i][c('승인')] === true) return;
+    UPDATE_FIELDS.forEach(function (label) {
+      var key = COLUMNS[c(label)][1];
+      var v = r[key] == null ? '' : r[key];
+      data[i][c(label)] = Array.isArray(v) ? v.join(', ') : v;
+    });
+    sh.getRange(i + 2, 1, 1, COLUMNS.length).setValues([data[i]]);
+    updated++;
+  });
+  if (updated && sh.getFilter()) showReview_(sh);
+  return { ok: true, updated: updated };
+}
+
+// ── 검토 보기(필터) ───────────────────────────────────────────────────
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('수집기')
+    .addItem('검토할 행만 보기', 'showReview')
+    .addItem('전체 보기', 'showAll')
+    .addSeparator()
+    .addItem('승인 안 한 행 넘기기(검토 끝)', 'markReviewed')
+    .addItem('승인 행 지금 보내기', 'deliverApproved')
+    .addToUi();
+}
+
+/**
+ * 검토할 행만 보이게 필터를 건다: 추천이 '제외'가 아니고 상태가 '대기'이거나 '실패'인 행.
+ * 승인 체크는 이 화면에서 그대로 하고, 다 봤으면 '승인 안 한 행 넘기기'로 남은 행을 '넘김'으로 바꿔 목록에서 뺀다
+ */
+function showReview() {
+  showReview_(sheet_());
+}
+
+function showAll() {
+  var f = sheet_().getFilter();
+  if (f) f.remove();
+}
+
+function colLetter_(n) {
+  var s = '';
+  for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s;
+  return s;
+}
+
+function showReview_(sh) {
+  var old = sh.getFilter();
+  if (old) old.remove();
+  var f = sh.getRange(1, 1, sh.getMaxRows(), COLUMNS.length).createFilter();
+  var rec = colLetter_(col_('추천')), st = colLetter_(col_('상태'));
+  f.setColumnFilterCriteria(col_('추천'), SpreadsheetApp.newFilterCriteria()
+    .whenFormulaSatisfied('=' + rec + '2<>"제외"').build());
+  f.setColumnFilterCriteria(col_('상태'), SpreadsheetApp.newFilterCriteria()
+    .whenFormulaSatisfied('=OR(' + st + '2="대기",LEFT(' + st + '2,2)="실패")').build());
+}
+
+/** 승인하지 않은 대기 행을 '넘김'으로 바꾼다. 분류 실패(검토 필요) 행은 다시 분류되도록 남긴다 */
+function markReviewed() {
+  var ui = SpreadsheetApp.getUi();
+  withLock_(function () {
+    var sh = sheet_();
+    var last = lastDataRow_(sh);
+    if (last < 2) return;
+    var data = sh.getRange(2, 1, last - 1, COLUMNS.length).getValues();
+    var c = function (label) { return col_(label) - 1; };
+    var rows = [];
+    data.forEach(function (row, i) {
+      if (row[c('상태')] === '대기' && row[c('승인')] !== true && row[c('추천')] !== '검토 필요') rows.push(i + 2);
+    });
+    if (!rows.length) { ui.alert('넘길 행이 없습니다.'); return; }
+    if (ui.alert('승인하지 않은 대기 행 ' + rows.length + '개를 넘김으로 바꿉니다. 계속할까요?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+    var st = sh.getRange(2, col_('상태'), last - 1, 1).getValues();
+    rows.forEach(function (r) { st[r - 2][0] = '넘김'; });
+    sh.getRange(2, col_('상태'), last - 1, 1).setValues(st);
+    if (sh.getFilter()) showReview_(sh);
+  });
 }
 
 // ── 승인 행 → 드라이브 ─────────────────────────────────────────────────

@@ -49,6 +49,21 @@ def existing_keys(session: requests.Session | None = None) -> set[str]:
     return set(data.get("keys", []))
 
 
+def failed_keys(session: requests.Session | None = None) -> set[str]:
+    """분류하지 못한('검토 필요') 대기 행의 글 키."""
+    data = _call(session or requests.Session(), {"action": "failed_keys"})
+    return set(data.get("keys", []))
+
+
+def update_rows(rows: list[dict], session: requests.Session | None = None) -> int:
+    """다시 분류한 결과로 시트의 대기 행을 바꾸고 바꾼 행 수를 돌려준다."""
+    s = session or requests.Session()
+    n = 0
+    for i in range(0, len(rows), BATCH):
+        n += _call(s, {"action": "update", "rows": rows[i:i + BATCH]}).get("updated", 0)
+    return n
+
+
 def _post_batch(s, batch: list[dict], sleep=time.sleep) -> dict:
     return _call(s, {"rows": batch}, sleep)
 
