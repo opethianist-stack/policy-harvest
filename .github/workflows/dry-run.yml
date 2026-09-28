@@ -33,18 +33,37 @@ jobs:
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
-      - name: Peek ministries
+      - name: Peek ministries (detail)
         run: |
-          G='[Dd]own|[Ff]ile|atch|[Vv]iew|\.(pdf|hwpx?)\b|onclick'
-          for u in \
-            "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe" \
-            "https://www.moe.go.kr/sub/infoRenew.do?page=72762&m=031101&s=moe" \
-            "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=72713&renew=72713&m=031102&s=moe" \
-            "https://www.moel.go.kr/news/enews/report/enewsList.do" \
-            "https://www.moel.go.kr/policy/policydata/list.do" \
-            "https://www.moel.go.kr/policy/busireport/main.do" \
-            "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000018" \
-            "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000011" \
-            "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000014"; do
-            python scripts/peek.py "$u" | cut -c1-300 | head -45 || true
-          done
+          python scripts/peek.py "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe" --follow "boardSeq=|viewRenew" | cut -c1-300 | head -60 || true
+          python scripts/peek.py "https://www.moel.go.kr/news/enews/report/enewsList.do" --follow "enewsView|bbs_seq=" | cut -c1-300 | head -60 || true
+          python scripts/peek.py "https://www.moel.go.kr/policy/policydata/list.do" --follow "view\\.do" | cut -c1-300 | head -60 || true
+          python scripts/peek.py "https://www.moel.go.kr/policy/busireport/main.do" --grep "busireport|[Dd]own|20[0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]" | cut -c1-400 | head -20 || true
+          python - <<'PY'
+          import json, re, requests
+          UA = {"User-Agent": "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"}
+          h = requests.get("https://www.aikorea.go.kr/", headers=UA, timeout=30)
+          print("HOME", h.status_code, h.headers.get("content-type"), len(h.text))
+          for m in re.finditer(r'"menu_(?:cd|nm|name|url)"\s*:\s*"([^"]*)"', h.text):
+              pass
+          names = re.findall(r'\{[^{}]*?"menu_cd"\s*:\s*"(\d+)"[^{}]*?\}', h.text)
+          for obj in re.findall(r'\{[^{}]*?"menu_cd"[^{}]*?\}', h.text)[:80]:
+              cd = re.search(r'"menu_cd"\s*:\s*"([^"]*)"', obj)
+              nm = re.search(r'"menu_(?:nm|name|title)"\s*:\s*"([^"]*)"', obj)
+              url = re.search(r'"(?:menu_url|url|link)"\s*:\s*"([^"]*)"', obj)
+              print("MENU", cd and cd.group(1), nm and nm.group(1), url and url.group(1))
+          if "MENU" not in h.text[:0]:
+              print("HOME head", h.text[:1500])
+          for cd in ("000011", "000014"):
+              r = requests.get(f"https://www.aikorea.go.kr/web/board/brdList.do?menu_cd={cd}", headers=UA, timeout=60)
+              try:
+                  d = r.json()
+              except Exception as e:
+                  print(cd, "not json", e); continue
+              print(cd, "keys", list(d)[:20])
+              lst = d.get("brdList") or []
+              print(cd, "n", len(lst), "item keys", list(lst[0])[:60] if lst else None)
+              for it in lst[:6]:
+                  print("  ", it.get("num"), it.get("menu_id"), it.get("regdate") or it.get("reg_date"), (it.get("title") or "")[:60],
+                        {k: v for k, v in it.items() if "file" in k.lower() and v})
+          PY
