@@ -15,6 +15,7 @@ import anthropic
 from .sources.base import Post
 
 MODEL = os.environ.get("CLASSIFY_MODEL", "").strip() or "claude-opus-5"
+DOC_NAME_MAX = 25
 FALLBACK_MODELS = {"claude-opus-5", "claude-opus-5-5", "claude-fable-5-1"}
 DOC_TYPES = ["업무계획", "기본계획·종합계획", "시행계획", "경영목표·경영공시", "사업계획", "보도자료", "행사·성과", "기타"]
 
@@ -36,7 +37,7 @@ SYSTEM = """너는 교육·과학기술 분야 정책문서 수집기의 분류 
 - 법령 서식·점검 항목표처럼 정책 내용이 없는 참고 서식
 
 ## 파일명 값
-- doc_name: 문서 내용을 알 수 있는 짧은 이름. 기관명·연도·괄호 머리말([보도자료] 등)은 빼고, 밑줄(_)과 파일명 금지 문자는 쓰지 않는다. 예: "연구개발사업 종합시행계획", "AI 인재양성 방안"
+- doc_name: 문서 내용을 알 수 있는 짧은 이름. 공백 포함 25자 이내. 기관명·연도·괄호 머리말([보도자료] 등)과 "개최", "추진", "발표" 같은 꼬리말은 빼고, 밑줄(_)과 파일명 금지 문자는 쓰지 않는다. 예: "연구개발사업 종합시행계획", "AI 인재양성 방안", "지역 현안 해결 챌린지"
 - 첨부마다 kind(구분)를 정한다: 보도자료 본문이면 "보도", 붙임·별첨 계획서면 "별첨", 요약본이면 "요약", 첨부가 하나뿐이거나 구분이 필요 없으면 ""
 - 첨부마다 doc_name을 따로 줄 수 있다. 같은 글의 붙임이 서로 다른 문서라면 각각의 이름을 준다
 - year: 문서가 다루는 연도(계획 대상 연도). 모르면 게시 연도
@@ -116,9 +117,22 @@ def classify(client: anthropic.Anthropic, post: Post, agency: dict) -> dict:
         return failed("분류 응답이 잘림")
     text = next((b.text for b in res.content if b.type == "text"), "")
     try:
-        return json.loads(text)
+        out = json.loads(text)
     except ValueError:
         return failed("분류 응답이 JSON이 아님")
+    out["doc_name"] = shorten(out.get("doc_name", ""))
+    for a in out.get("attachments", []):
+        a["doc_name"] = shorten(a.get("doc_name", ""))
+    return out
+
+
+def shorten(name: str, limit: int = DOC_NAME_MAX) -> str:
+    """문서명이 limit자를 넘으면 단어 경계에서 자른다(단어 하나가 길면 글자 기준)."""
+    name = " ".join(name.split())
+    if len(name) <= limit:
+        return name
+    cut = name[:limit].rsplit(" ", 1)[0]
+    return cut if len(cut) >= limit // 2 else name[:limit]
 
 
 def failed(reason: str) -> dict:

@@ -51,6 +51,22 @@ def test_classify_parses_json_and_sends_schema():
         assert kw["fallbacks"] == "default" and kw["output_config"]["effort"] == "low"
 
 
+def test_shorten_doc_name():
+    assert classify.shorten("연구개발사업 종합시행계획") == "연구개발사업 종합시행계획"
+    long = "반도체 연구시설 맞춤형 안전 지원 및 현장 점검 추진"
+    out = classify.shorten(long)
+    assert len(out) <= 25 and long.startswith(out) and not out.endswith(" ")
+    assert len(classify.shorten("가" * 40)) == 25
+
+
+def test_classify_shortens_names():
+    long = dict(OK, doc_name="반도체 연구시설 맞춤형 안전 지원 및 현장 점검 추진 계획",
+                attachments=[{"index": 0, "doc_name": "가" * 30, "kind": "보도"}])
+    c, _ = fake_client(resp(json.dumps(long, ensure_ascii=False)))
+    out = classify.classify(c, POST, AGENCY)
+    assert len(out["doc_name"]) <= 25 and len(out["attachments"][0]["doc_name"]) == 25
+
+
 def test_classify_failures_become_review():
     for r in (resp("", stop="refusal"), resp("{", stop="max_tokens"), resp("not json")):
         c, _ = fake_client(r)
