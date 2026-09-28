@@ -31,4 +31,18 @@ jobs:
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
-          python scripts/peek.py "https://use.go.kr/user/bbs/BD_selectBbs.do?q_bbsSn=1940&q_bbsDocNo=20251218112017796" --grep '한면|두면|[Ff]ile[Dd]own' | cut -c1-500 | head -40
+          python - <<'PY'
+          import re, requests
+          UA = {"User-Agent": "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"}
+          page = "https://www.pen.go.kr/main/cm/cntnts/cntntsView.do?mi=31848&cntntsId=290"
+          f = "https://www.pen.go.kr/main/cf/fileDownload.do?fileKey=af38edbc916197d4c2ea12d661fa4f08"
+          r = requests.get(f, headers=UA, timeout=60); print("PEN plain", r.status_code, dict(r.headers), len(r.content))
+          r = requests.get(f, headers={**UA, "Referer": page}, timeout=60); print("PEN referer", r.status_code, r.headers.get("content-type"), len(r.content), r.content[:5])
+          s = requests.Session(); s.headers.update(UA); s.get(page, timeout=60)
+          r = s.get(f, headers={"Referer": page}, timeout=60); print("PEN session", r.status_code, r.headers.get("content-type"), len(r.content), r.content[:5], s.cookies.keys())
+          g = requests.get("https://www.gwe.go.kr/main/content.do?key=m2307211210954", headers=UA, timeout=60).text
+          for m in re.finditer(r"fileDown|20[12]\d", g):
+              print("GWE", repr(g[max(0, m.start() - 200): m.end() + 200]))
+          r = requests.get("https://www.gwe.go.kr/cmm/fileDown.do?encKey=MTEyMzE4&type=fileMng", headers=UA, timeout=60, stream=True)
+          print("GWE file", r.status_code, r.headers.get("content-type"), r.headers.get("content-disposition"), r.headers.get("content-length"))
+          PY
