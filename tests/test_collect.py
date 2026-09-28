@@ -100,3 +100,22 @@ def test_http_retries_connection_errors(monkeypatch):
     with pytest.raises(requests.ConnectionError):
         http.get("u")
     assert len(calls) == 3
+
+
+def test_nipa_list_and_detail():
+    from harvest.sources import nipa
+    rows = nipa.parse_list((FIX / "nipa_list.html").read_text(encoding="utf-8"), "/home/4-4-1")
+    assert len(rows) == 10
+    assert rows[0] == ("16942", "정보통신산업진흥원, 한국엔젤투자협회와 손잡고 스타트업 국내외 양방향 진출 지원 나선다.", "2026-09-21")
+    body, atts = nipa.parse_detail((FIX / "nipa_detail.html").read_text(encoding="utf-8"), "https://www.nipa.kr/home/4-4-1/16942")
+    assert body.startswith("■ 재외 한인 기술인재")
+    assert [a.ext for a in atts] == ["pdf", "zip"]
+    assert atts[0].url.startswith("https://www.nipa.kr/comm/getFile?")
+    assert not atts[0].name.endswith(")") or "파일크기" not in atts[0].name
+    # pdf가 있으면 "보도자료(HWPX)및사진.zip"은 뺀다
+    assert [a.ext for a in pick_attachments(atts)] == ["pdf"]
+
+
+def test_pick_attachments_keeps_zip_without_indexed_copy():
+    atts = [Attachment("보도자료(HWPX)및사진.zip", "1"), Attachment("붙임.odt", "2")]
+    assert sorted(a.url for a in pick_attachments(atts)) == ["1", "2"]

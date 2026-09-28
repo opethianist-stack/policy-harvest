@@ -4,7 +4,7 @@
   python -m harvest.collect --dry-run --classify --limit 5   # 새 글 5건만 분류해 출력
   python -m harvest.collect --send --classify            # 새 글을 분류해 승인 시트로 보낸다
 
-지금 구현된 수집기: MSIT(과기정통부 API)
+지금 구현된 수집기: MSIT(과기정통부 API), NIPA(보도자료)
 """
 
 from __future__ import annotations
@@ -18,11 +18,11 @@ from pathlib import Path
 import yaml
 
 from . import sheet
-from .sources import msit
+from .sources import msit, nipa
 from .sources.base import Http, Post
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCES = {"MSIT": msit.collect}
+SOURCES = {"MSIT": msit.collect, "NIPA": nipa.collect}
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
@@ -92,7 +92,8 @@ def main(argv=None) -> int:
             continue
         try:
             got = fn(http, since=since, today=now.date())
-            print(f"[{sid}] 게시글 {len(got)}건 (보도자료 {since} 이후, 주요정책 {now.year}년)")
+            note = f", 주요정책 {now.year}년" if sid == "MSIT" else ""
+            print(f"[{sid}] 게시글 {len(got)}건 (보도자료 {since} 이후{note})")
             posts += got
         except Exception as e:  # 한 기관이 실패해도 나머지는 계속
             failed.append(sid)

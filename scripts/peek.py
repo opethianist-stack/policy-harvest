@@ -1,6 +1,6 @@
 """새 수집기를 만들 때 쓰는 페이지 구조 확인 도구(dry-run 워크플로에서 실행).
 
-  python scripts/peek.py URL [--follow 정규식]
+  python scripts/peek.py URL [--follow 정규식] [--grep 정규식]
 
 목록 페이지의 표 행, 정규식에 맞는 링크, 첨부로 보이는 링크를 출력한다.
 --follow 를 주면 정규식에 맞는 첫 링크(상세 페이지)도 받아 같은 방식으로 출력한다.
@@ -20,7 +20,7 @@ UA = "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"
 FILE_HINT = re.compile(r"down|file|atch|attach|\.(pdf|hwpx?|zip|xlsx?|odt)\b", re.I)
 
 
-def show(url: str, follow: str | None, depth: int = 0) -> None:
+def show(url: str, follow: str | None, grep: str | None = None, depth: int = 0) -> None:
     print(f"\n===== {url}")
     try:
         r = requests.get(url, headers={"User-Agent": UA}, timeout=30)
@@ -52,18 +52,22 @@ def show(url: str, follow: str | None, depth: int = 0) -> None:
     print("-- dates:", dates)
     if not s.find("table"):
         print("-- body text head:", re.sub(r"\s+", " ", s.get_text(" ", strip=True))[:1200])
+    if grep:
+        for m in list(re.finditer(grep, r.text))[:15]:
+            print("   grep:", repr(r.text[max(0, m.start() - 150): m.end() + 250]))
     if follow and depth == 0:
         hits = [l for l in links if re.search(follow, l[0])]
         if hits:
-            show(urljoin(url, hits[0][0]), None, depth + 1)
+            show(urljoin(url, hits[0][0]), None, grep, depth + 1)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("url")
     ap.add_argument("--follow")
+    ap.add_argument("--grep", help="원문 HTML에서 찾아 앞뒤를 출력할 정규식")
     a = ap.parse_args()
-    show(a.url, a.follow)
+    show(a.url, a.follow, a.grep)
     return 0
 
 
