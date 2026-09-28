@@ -23,10 +23,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: Peek
-        run: |
-          python scripts/peek.py "https://www.kosac.re.kr/menus/272/boards/394/posts/61990" --grep '첨부|[Dd]ownload|attach|[Ff]ile(Id|Name|Sn|No)|\.(hwpx?|pdf|zip)\b'
-          python scripts/peek.py "https://www.kosac.re.kr/menus/272/boards/394/posts" --grep 'board_list|ico_file|첨부' 
+      - name: KOSAC (last 90 days)
+        run: python -m harvest.collect --dry-run --only KOSAC --since-days 90
       - name: Collect (dry run)
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}

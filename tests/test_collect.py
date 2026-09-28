@@ -119,3 +119,14 @@ def test_nipa_list_and_detail():
 def test_pick_attachments_keeps_zip_without_indexed_copy():
     atts = [Attachment("보도자료(HWPX)및사진.zip", "1"), Attachment("붙임.odt", "2")]
     assert sorted(a.url for a in pick_attachments(atts)) == ["1", "2"]
+
+
+def test_kosac_list_and_detail():
+    from harvest.sources import kosac
+    rows = kosac.parse_list((FIX / "kosac_list.html").read_text(encoding="utf-8"), "/menus/272/boards/394/posts")
+    assert rows == [("62038", "재단, 인공지능 협업을 위한 업무협약 체결", "2026-08-14"),
+                    ("61990", "「2026년 청소년 과학대장정」발대식 개최", "2026-07-28")]
+    date, body, atts = kosac.parse_detail((FIX / "kosac_detail.html").read_text(encoding="utf-8"))
+    assert date == "2026-07-28" and body.startswith("[기사요약]")
+    assert [(a.name, a.ext) for a in atts] == [("[보도자료] 「2026년 청소년 과학대장정」 발대식 개최.pdf", "pdf")]
+    assert atts[0].url == "https://cdn.kosac.re.kr/files/cms/attach/202607/639b7ca0116348ac8bf82e72c953d4cb_1785227534435.pdf"

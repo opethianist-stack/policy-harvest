@@ -4,7 +4,7 @@
   python -m harvest.collect --dry-run --classify --limit 5   # 새 글 5건만 분류해 출력
   python -m harvest.collect --send --classify            # 새 글을 분류해 승인 시트로 보낸다
 
-지금 구현된 수집기: MSIT(과기정통부 API), NIPA(보도자료)
+지금 구현된 수집기: MSIT(과기정통부 API), NIPA·KOSAC(보도자료)
 """
 
 from __future__ import annotations
@@ -18,11 +18,11 @@ from pathlib import Path
 import yaml
 
 from . import sheet
-from .sources import msit, nipa
+from .sources import kosac, msit, nipa
 from .sources.base import Http, Post
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCES = {"MSIT": msit.collect, "NIPA": nipa.collect}
+SOURCES = {"MSIT": msit.collect, "NIPA": nipa.collect, "KOSAC": kosac.collect}
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
@@ -130,7 +130,11 @@ def main(argv=None) -> int:
     print(f"시트 행 {len(rows)}개")
     if args.send and rows:
         print("시트 전송:", sheet.post_rows(rows))
-    return 1 if failed and not posts else 0
+    if failed:
+        # 다른 기관 결과는 보낸 뒤 실패로 끝내 워크플로가 빨갛게 표시되게 한다(GitHub가 메일로 알린다)
+        print("수집 실패 기관:", ", ".join(failed))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
