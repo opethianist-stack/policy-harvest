@@ -33,3 +33,18 @@ jobs:
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
+      - name: Peek ministries
+        run: |
+          G='[Dd]own|[Ff]ile|atch|[Vv]iew|\.(pdf|hwpx?)\b|onclick'
+          for u in \
+            "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe" \
+            "https://www.moe.go.kr/sub/infoRenew.do?page=72762&m=031101&s=moe" \
+            "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=72713&renew=72713&m=031102&s=moe" \
+            "https://www.moel.go.kr/news/enews/report/enewsList.do" \
+            "https://www.moel.go.kr/policy/policydata/list.do" \
+            "https://www.moel.go.kr/policy/busireport/main.do" \
+            "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000018" \
+            "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000011" \
+            "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000014"; do
+            python scripts/peek.py "$u" | cut -c1-300 | head -45 || true
+          done
