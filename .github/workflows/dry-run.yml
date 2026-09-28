@@ -33,6 +33,46 @@ jobs:
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
+      - name: Peek ministries (detail 2)
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, re, requests
+          from bs4 import BeautifulSoup
+          UA = {"User-Agent": "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"}
+          r = requests.get("https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe", headers=UA, timeout=60)
+          s = BeautifulSoup(r.text, "html.parser")
+          tr = s.find("table").find_all("tr")[1]
+          print("MOE row", str(tr)[:1500])
+          i = r.text.find("function goView"); print("MOE goView", r.text[i:i+600] if i >= 0 else None)
+          for m in re.finditer(r"function (\w+)\s*\(([^)]*)\)\s*\{[^}]{0,300}viewRenew", r.text):
+              print("MOE fn", r.text[m.start():m.start()+500])
+          print("MOE paging", re.findall(r"(?:currPage|pageIndex|page)=\d+", r.text)[:5], re.findall(r"goPage\([^)]*\)|fnPage\([^)]*\)|linkPage\([^)]*\)", r.text)[:3])
+          r = requests.get("https://www.moel.go.kr/news/enews/report/enewsList.do", headers=UA, timeout=60)
+          print("MOEL paging", re.findall(r"(?:pageIndex|page|curPage)=\d+", r.text)[:5], re.findall(r"\w*[Pp]age\w*\(\s*'?\d+'?\s*\)", r.text)[:5])
+          d = requests.get("https://www.moel.go.kr/news/enews/report/enewsView.do?news_seq=20008", headers=UA, timeout=60).text
+          ds = BeautifulSoup(d, "html.parser")
+          for c in ds.find_all(["div", "td"], class_=True):
+              t = " ".join(c.get_text(" ", strip=True).split())
+              if "상하이" in t and len(t) < 4000:
+                  print("MOEL body cand", c.name, c.get("class"), t[:120])
+          for cd in ("000011", "000012", "000010"):
+              j = requests.get(f"https://www.aikorea.go.kr/web/board/brdList.do?menu_cd={cd}", headers=UA, timeout=60).json()
+              print(cd, "boardAttUrl", j.get("boardAttUrl"), "paging", j.get("pagingInfoVO"))
+              for it in j["brdList"][:4]:
+                  print("  ", it["num"], it["menu_id"], it.get("write_dt"), it.get("disp_write_dt"), it["title"][:50], "|", it.get("att_file"), it.get("file_org"), it.get("file_save"), it.get("subpath"), it.get("pdf_file"), it.get("link"))
+          for u in ("https://www.aikorea.go.kr/web/board/brdDetail.do?menu_cd=000011&num=819",
+                    "https://www.aikorea.go.kr/web/board/brdView.do?menu_cd=000011&num=819"):
+              r = requests.get(u, headers=UA, timeout=60)
+              print("DETAIL", u, r.status_code, r.headers.get("content-type"), len(r.text))
+              try:
+                  j = r.json(); print("  keys", list(j)[:30])
+                  for k, v in j.items():
+                      if isinstance(v, list) and v and isinstance(v[0], dict) and any("file" in x.lower() for x in v[0]):
+                          print("  list", k, v[:3])
+              except Exception:
+                  print("  text", r.text[:300])
+          PY
       - name: Peek ministries (detail)
         if: always()
         run: |
