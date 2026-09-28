@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import sys
 import time
 from dataclasses import dataclass, field
 
@@ -95,11 +96,12 @@ class Http:
 
 
 def collect_board(http: Http, agency: str, kind: str, list_url: str, page_params, parse_list, detail_url,
-                  parse_detail, since, max_pages: int = 5) -> list[Post]:
+                  parse_detail, since, max_pages: int = 20) -> list[Post]:
     """목록 → 상세를 따라가는 게시판 공통 흐름.
 
     parse_list(html) -> [(글번호, 제목, 'YYYY-MM-DD')], parse_detail(html, url) -> (본문, [Attachment]).
     공지로 고정된 옛 글이 목록 위에 붙는 게시판이 있어, 페이지의 마지막 행 날짜가 기간 밖이면 멈춘다.
+    max_pages는 안전 상한이다. 상한에 닿고도 기간 끝에 못 미치면 알린다(90일 백필에서 교육부가 5페이지로 모자랐다).
     """
     out, seen = [], set()
     for page in range(1, max_pages + 1):
@@ -117,6 +119,8 @@ def collect_board(http: Http, agency: str, kind: str, list_url: str, page_params
             out.append(Post(agency, kind, no, title, date, url, body=body, attachments=pick_attachments(atts)))
         if not rows or rows[-1][2] < since.isoformat():
             break
+    else:
+        print(f"[{agency}] {kind}: {max_pages}페이지 상한에 닿음, {since} 이전까지 내려가지 못했을 수 있음", file=sys.stderr)
     return out
 
 
