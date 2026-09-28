@@ -39,8 +39,3 @@ jobs:
           python -m harvest.collect --dry-run --only MOE --since-days 30 --probe-files
           python -m harvest.collect --dry-run --only MOEL --since-days 90 --probe-files
           python -m harvest.collect --dry-run --only NAISC --since-days 90 --probe-files
-      - name: Peek KICE (temporary)
-        if: always()
-        run: |
-          python scripts/peek.py https://www.kice.re.kr/ --grep '사업공고|사업 공고'
-          python scripts/peek.py https://www.kice.re.kr/main.do --grep '사업공고|사업 공고'
