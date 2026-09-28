@@ -141,4 +141,5 @@ def failed(reason: str) -> dict:
 
 
 def client() -> anthropic.Anthropic:
-    return anthropic.Anthropic()
+    # 과부하(529)·속도 제한은 SDK가 지수 대기로 다시 보낸다. 기본 2회로는 몰릴 때 모자라 늘린다
+    return anthropic.Anthropic(max_retries=8)

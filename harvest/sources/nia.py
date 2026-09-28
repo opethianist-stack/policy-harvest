@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import datetime
+import html as htmllib
 import re
 from urllib.parse import urljoin
 
@@ -29,7 +30,7 @@ def parse_list(html: str, cb: str) -> list[tuple[str, str, str]]:
         box = a.find_parent("li") or a.parent
         date = dotted_date(box.get_text(" "))
         # 링크 글자에는 "첨부파일 있음"·날짜가 섞여 있어 title 속성("제목-첨부파일 있음")을 쓴다
-        title = re.sub(r"-(첨부파일 (있음|없음)|새 ?글)$", "", a.get("title") or "").strip() or \
+        title = re.sub(r"-(첨부파일 (있음|없음)|새 ?글)$", "", htmllib.unescape(a.get("title") or "")).strip() or \
             " ".join(a.get_text(" ", strip=True).split())
         if date:
             out.append((no, title, date))
