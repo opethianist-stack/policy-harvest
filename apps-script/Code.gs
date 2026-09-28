@@ -284,7 +284,7 @@ function deliverApproved() {
       if (known.indexOf(ext) < 0) { setStatus('실패: 저장하지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
       var res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
       if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
-      var blob = res.getBlob();
+      var blob = blobOf_(res, ext);
       var bytes = blob.getBytes().length;
       if (bytes < 1024) { setStatus('실패: 파일이 너무 작음(' + bytes + 'B, 오류 페이지일 수 있음)'); return; }
 
@@ -345,6 +345,20 @@ function download_(url, referer) {
     opts.validateHttpsCertificates = false;
     return UrlFetchApp.fetch(url, opts);
   }
+}
+
+/**
+ * 응답을 Blob으로. res.getBlob()은 서버가 형식이 틀린 Content-Type(경북교육청 "application-download")을 주면
+ * "Invalid argument"로 멈추므로 바이트로 받아 형식을 직접 정한다
+ */
+function blobOf_(res, ext) {
+  var headers = res.getHeaders(), type = '';
+  Object.keys(headers).forEach(function (k) { if (k.toLowerCase() === 'content-type') type = String(headers[k]); });
+  type = type.split(';')[0].trim();
+  if (ext === 'odt') type = 'application/vnd.oasis.opendocument.text'; // 구글 문서 변환이 형식을 보고 판단한다
+  else if (ext === 'pdf') type = 'application/pdf';
+  else if (!/^[\w.+-]+\/[\w.+-]+$/.test(type)) type = 'application/octet-stream';
+  return Utilities.newBlob(res.getContent(), type, 'download.' + ext);
 }
 
 /**

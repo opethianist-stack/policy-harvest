@@ -72,3 +72,12 @@ test('fixedNumber adds sub-numbers only when a post has several rows', () => {
   assert.equal(ctx.fixedNumber('19-11', 1, keys), '19-11-1');
   assert.equal(ctx.fixedNumber('19-11', 3, keys), '19-11-2');
 });
+
+test('blobOf_ tolerates malformed content types', () => {
+  ctx.Utilities = { newBlob: (bytes, type, name) => ({ bytes, type, name }) };
+  const res = (h) => ({ getHeaders: () => h, getContent: () => [1, 2] });
+  assert.equal(ctx.blobOf_(res({ 'Content-Type': 'application-download' }), 'hwp').type, 'application/octet-stream');
+  assert.equal(ctx.blobOf_(res({ 'content-type': 'application/haansofthwp; charset=UTF-8' }), 'hwp').type, 'application/haansofthwp');
+  assert.equal(ctx.blobOf_(res({ 'Content-Type': 'application-download' }), 'pdf').type, 'application/pdf');
+  assert.equal(ctx.blobOf_(res({}), 'odt').type, 'application/vnd.oasis.opendocument.text');
+});
