@@ -1,0 +1,41 @@
+name: dry-run
+
+# 수집기를 고치면 시트에 보내지 않고 수집 결과만 출력한다(시트 중복 확인도 하지 않아 기간 안의 글이 모두 나온다). peek는 새 수집기를 만들 때 페이지 구조를 보는 용도
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "harvest/**"
+      - "scripts/peek.py"
+      - "config/sources.yaml"
+      - ".github/workflows/dry-run.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      # 웹 게시판 수집기만 돌린다. 과기정통부 API(공공데이터포털)는 해외 러너 접속이 자주 끊겨 여기서는 빼고 collect 워크플로에서 확인한다
+      - name: Collect (dry run, web boards, last 90 days)
+        run: |
+          python -m harvest.collect --dry-run --only NIPA --since-days 90
+          python -m harvest.collect --dry-run --only KOSAC --since-days 90
+          python -m harvest.collect --dry-run --only NIA --since-days 30
+          python -m harvest.collect --dry-run --only KERIS --since-days 30
+      - name: Education offices (plan of this year, download check)
+        run: |
+          python -m harvest.collect --dry-run --only EDU --probe-files
+      - name: Ministries (last 30 days, download check)
+        if: always()
+        run: |
+          python -m harvest.collect --dry-run --only MOE --since-days 30 --probe-files
+          python -m harvest.collect --dry-run --only MOEL --since-days 90 --probe-files
+          python -m harvest.collect --dry-run --only NAISC --since-days 90 --probe-files

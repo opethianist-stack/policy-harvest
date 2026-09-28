@@ -1,0 +1,13 @@
+{"response": [
+  {"header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."}},
+  {"body": {"totalCount": 17555, "items": [
+    {"item": {"subject": "[보도자료] 2026년 과학기술정보통신부 업무계획  발표", "pressDt": "2026-01-15", "deptName": "기획재정담당관",
+      "viewUrl": "https://www.msit.go.kr/bbs/view.do?sCode=user&mId=307&mPid=208&bbsSeqNo=94&nttSeqNo=3180001",
+      "files": [{"file": {"fileName": "업무계획 보도자료.hwpx", "fileUrl": "https://www.msit.go.kr/ssm/file/fileDown.do?atchFileNo=1&fileOrd=1"}},
+                {"file": {"fileName": "업무계획 보도자료.odt", "fileUrl": "https://www.msit.go.kr/ssm/file/fileDown.do?atchFileNo=1&fileOrd=2"}},
+                {"file": {"fileName": "붙임_업무계획.pdf", "fileUrl": "https://www.msit.go.kr/ssm/file/fileDown.do?atchFileNo=1&fileOrd=3"}}]}},
+    {"item": {"subject": "장관, 연구현장 방문", "pressDt": "2026-01-14", "deptName": "대변인실",
+      "viewUrl": "https://www.msit.go.kr/bbs/view.do?sCode=user&mId=307&mPid=208&bbsSeqNo=94&nttSeqNo=3180000",
+      "files": {"file": {"fileName": "보도자료.odt", "fileUrl": "https://www.msit.go.kr/ssm/file/fileDown.do?atchFileNo=2&fileOrd=1"}}}}
+  ]}}
+]}
