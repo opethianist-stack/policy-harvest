@@ -51,9 +51,9 @@ agencies:
     home: https://www.aikorea.go.kr/web/main.do
     # 게시판은 menu_cd로 구분. 000011에 인공지능 행동계획 원문이 올라와 있다(검색 결과로 확인)
     boards:
-      - {kind: press, source: search, url: "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000018"}
+      - {kind: press, source: probe, url: "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000012"}  # 000018은 위원 소개였다
       - {kind: policy, source: search, url: "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000011"}
-      - {kind: policy, source: search, url: "https://www.aikorea.go.kr/web/board/brdList.do?menu_cd=000014"}  # 정책 보고서
+      # 000014는 인터뷰 및 기고(언론 기사)라 받지 않는다
 
   # ── 공공기관 ──
   - id: NIPA

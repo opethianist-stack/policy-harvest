@@ -33,76 +33,9 @@ jobs:
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
-      - name: Peek ministries (detail 3)
+      - name: Ministries (last 30 days, download check)
         if: always()
         run: |
-          python scripts/peek.py "https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=107307&lev=0&m=020402&s=moe&opType=N" --grep "fileDown|downFile|[Dd]ownload" | cut -c1-400 | head -40 || true
-          python - <<'PY'
-          import requests
-          from bs4 import BeautifulSoup
-          UA = {"User-Agent": "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"}
-          r = requests.get("https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=107307&lev=0&m=020402&s=moe&opType=N", headers=UA, timeout=60)
-          s = BeautifulSoup(r.text, "html.parser")
-          for c in s.find_all(["div", "td", "ul"], class_=True):
-              t = " ".join(c.get_text(" ", strip=True).split())
-              if ("모의평가" in t or "첨부" in t) and len(t) < 3000:
-                  print("MOE cand", c.name, c.get("class"), t[:160])
-          for a in s.find_all("a"):
-              h = (a.get("href") or "") + " " + (a.get("onclick") or "")
-              if "down" in h.lower() or "file" in h.lower():
-                  print("MOE a", h[:200], "|", a.get_text(" ", strip=True)[:80])
-          r = requests.get("https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe&page=2", headers=UA, timeout=60)
-          print("MOE page=2 first", BeautifulSoup(r.text, "html.parser").find("table").find_all("tr")[1].get_text(" ", strip=True)[:80])
-          j = requests.get("https://www.aikorea.go.kr/web/board/brdDetail.do?menu_cd=000012&num=923", headers=UA, timeout=60).json()
-          print("NAISC brd keys", {k: (str(v)[:80] if v else v) for k, v in (j.get("brd") or {}).items() if v})
-          for f in j.get("fileList") or []:
-              print("NAISC file", f.get("file_org"), f.get("file_save"), f.get("subpath"), f.get("contenttype"), f.get("file_num"), f.get("num"), f.get("type"))
-              for u in (f"https://www.aikorea.go.kr/attach/cms/board/{f['subpath']}/{f['file_save']}",
-                        f"https://www.aikorea.go.kr/web/board/fileDown.do?num={f['num']}",
-                        f"https://www.aikorea.go.kr/web/board/brdFileDown.do?num={f['num']}",
-                        f"https://www.aikorea.go.kr/common/fileDown.do?num={f['num']}"):
-                  try:
-                      x = requests.get(u, headers=UA, timeout=60, stream=True)
-                      print("   try", u, x.status_code, x.headers.get("content-type"), x.headers.get("content-length"), next(x.iter_content(5), b""))
-                  except Exception as e:
-                      print("   try", u, "ERR", e)
-              break
-          for params in ({"menu_cd": "000012", "currentPage": 2}, {"menu_cd": "000012", "pageIndex": 2}, {"menu_cd": "000012", "page": 2}):
-              j = requests.get("https://www.aikorea.go.kr/web/board/brdList.do", params=params, headers=UA, timeout=60).json()
-              print("NAISC paging", params, j["pagingInfoVO"]["currentPageNo"], j["brdList"][0]["num"])
-          PY
-      - name: Peek ministries (detail)
-        if: always()
-        run: |
-          python scripts/peek.py "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe" --follow "boardSeq=|viewRenew" | cut -c1-300 | head -60 || true
-          python scripts/peek.py "https://www.moel.go.kr/news/enews/report/enewsList.do" --follow "enewsView|bbs_seq=" | cut -c1-300 | head -60 || true
-          python scripts/peek.py "https://www.moel.go.kr/policy/policydata/list.do" --follow "view\\.do" | cut -c1-300 | head -60 || true
-          python scripts/peek.py "https://www.moel.go.kr/policy/busireport/main.do" --grep "busireport|[Dd]own|20[0-9][0-9]\\.[0-9][0-9]\\.[0-9][0-9]" | cut -c1-400 | head -20 || true
-          python - <<'PY'
-          import json, re, requests
-          UA = {"User-Agent": "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"}
-          h = requests.get("https://www.aikorea.go.kr/", headers=UA, timeout=30)
-          print("HOME", h.status_code, h.headers.get("content-type"), len(h.text))
-          for m in re.finditer(r'"menu_(?:cd|nm|name|url)"\s*:\s*"([^"]*)"', h.text):
-              pass
-          names = re.findall(r'\{[^{}]*?"menu_cd"\s*:\s*"(\d+)"[^{}]*?\}', h.text)
-          for obj in re.findall(r'\{[^{}]*?"menu_cd"[^{}]*?\}', h.text)[:80]:
-              cd = re.search(r'"menu_cd"\s*:\s*"([^"]*)"', obj)
-              nm = re.search(r'"menu_(?:nm|name|title)"\s*:\s*"([^"]*)"', obj)
-              url = re.search(r'"(?:menu_url|url|link)"\s*:\s*"([^"]*)"', obj)
-              print("MENU", cd and cd.group(1), nm and nm.group(1), url and url.group(1))
-          if "MENU" not in h.text[:0]:
-              print("HOME head", h.text[:1500])
-          for cd in ("000011", "000014"):
-              r = requests.get(f"https://www.aikorea.go.kr/web/board/brdList.do?menu_cd={cd}", headers=UA, timeout=60)
-              try:
-                  d = r.json()
-              except Exception as e:
-                  print(cd, "not json", e); continue
-              print(cd, "keys", list(d)[:20])
-              lst = d.get("brdList") or []
-              print(cd, "n", len(lst), "item keys", list(lst[0])[:60] if lst else None)
-              for it in lst[:6]:
-                  print("  ", it.get("num"), it.get("menu_id"), it.get("regdate") or it.get("reg_date"), (it.get("title") or "")[:60],
-                        {k: v for k, v in it.items() if "file" in k.lower() and v})
-          PY
+          python -m harvest.collect --dry-run --only MOE --since-days 30 --probe-files
+          python -m harvest.collect --dry-run --only MOEL --since-days 30 --probe-files
+          python -m harvest.collect --dry-run --only NAISC --since-days 90 --probe-files
