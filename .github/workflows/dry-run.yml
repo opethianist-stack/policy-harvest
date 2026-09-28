@@ -34,6 +34,7 @@ jobs:
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
       - name: Peek ministries (detail)
+        if: always()
         run: |
           python scripts/peek.py "https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe" --follow "boardSeq=|viewRenew" | cut -c1-300 | head -60 || true
           python scripts/peek.py "https://www.moel.go.kr/news/enews/report/enewsList.do" --follow "enewsView|bbs_seq=" | cut -c1-300 | head -60 || true

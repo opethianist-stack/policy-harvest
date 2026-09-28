@@ -77,9 +77,13 @@ def collect(http: Http, since: datetime.date, today: datetime.date) -> list[Post
         url = (plan.get("file") or {}).get(year)
         page = plan.get("url") or url
         if not url:
-            res = http.get(plan["url"])
-            res.raise_for_status()
-            url = find_link(res.text, res.url, plan, year)
+            try:  # 한 교육청이 응답하지 않아도 나머지는 받는다
+                res = http.get(plan["url"])
+                res.raise_for_status()
+                url = find_link(res.text, res.url, plan, year)
+            except Exception as e:
+                print(f"  [EDU] {o['id']} 페이지 요청 실패: {e}")
+                url = None
         if not url:
             missing.append(o["id"])
             continue

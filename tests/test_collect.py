@@ -226,3 +226,24 @@ def test_collect_board_skips_pinned_and_stops_on_last_row():
                           datetime.date(2026, 9, 1), max_pages=5)
     assert [p.post_id for p in posts] == ["30", "29"]
     assert [c for c in calls if c[1]] == [("L", {"p": 1}), ("L", {"p": 2})]  # 2쪽 마지막 행이 기간 밖이라 멈춤
+
+
+def test_edu_one_office_failure_does_not_stop_others(monkeypatch):
+    import requests
+    from harvest.sources import edu
+
+    class Res:
+        def __init__(self, url, text):
+            self.url, self.text = url, text
+
+        def raise_for_status(self):
+            pass
+
+    class FakeHttp:
+        def get(self, url, **kw):
+            if "cbe.go.kr" in url:
+                raise requests.ConnectTimeout("timed out")
+            return Res(url, "")  # 링크가 없는 페이지
+
+    posts = edu.collect(FakeHttp(), datetime.date(2026, 9, 14), datetime.date(2026, 9, 28))
+    assert [p.agency for p in posts] == ["GOE"]  # 주소를 적어 둔 경기만 남고, 충북 실패로 멈추지 않는다
