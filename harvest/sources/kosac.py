@@ -5,7 +5,8 @@ Next.js 사이트지만 목록·상세 모두 서버에서 완성된 HTML이 온
 상세 /menus/272/boards/394/posts/{글번호}
   - 등록일: .tbl_info 의 "등록일 YYYY-MM-DD"
   - 첨부 이름: .view_file .fileBr span (다운로드 버튼 href는 비어 있고 스크립트가 연다)
-  - 첨부 주소: 페이지에 실린 데이터(self.__next_f)의 fileUrl = https://cdn.kosac.re.kr/files/cms/attach/... (이름과 같은 순서)
+  - 첨부 주소: 페이지에 실린 데이터(self.__next_f)의 fileUrl = https://cdn.kosac.re.kr/files/cms/attach/... (이름과 같은 순서).
+    같은 CDN에 배너 이미지도 있어 cms/attach 경로만 쓴다
   - 본문: .view_con
 """
 
@@ -22,7 +23,7 @@ BASE = "https://www.kosac.re.kr"
 BOARDS = [("press", "/menus/272/boards/394/posts")]
 MAX_PAGES = 3
 DATE = re.compile(r"20\d\d-\d\d-\d\d")
-FILE_URL = re.compile(r"https://cdn\.kosac\.re\.kr/files/[^\"'\\\s<>]+")
+FILE_URL = re.compile(r"https://cdn\.kosac\.re\.kr/files/cms/attach/[^\"'\\\s<>]+")  # 배너 이미지(files/cms/banner 등)는 제외
 
 
 def parse_list(html: str, path: str) -> list[tuple[str, str, str]]:
@@ -31,8 +32,8 @@ def parse_list(html: str, path: str) -> list[tuple[str, str, str]]:
     out = []
     for tr in s.select("table.board_list tr"):  # 서버 HTML에는 tbody가 없을 수 있다
         a = tr.find("a", href=re.compile(re.escape(path) + r"/\d+"))
-        td = tr.select_one("td.date")
-        date = DATE.search(td.get_text() if td else tr.get_text(" "))
+        # 구분 칸도 class="date"(빈 template)라 날짜가 있는 칸을 찾는다
+        date = next((m for td in tr.select("td.date") if (m := DATE.search(td.get_text()))), None)
         if a and date:
             no = re.search(re.escape(path) + r"/(\d+)", a["href"]).group(1)
             out.append((no, " ".join(a.get_text(" ", strip=True).split()), date.group()))
