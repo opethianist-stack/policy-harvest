@@ -41,7 +41,7 @@ agencies:
     file_org: 고용노동부
     home: https://www.moel.go.kr
     boards:
-      - {kind: press, source: search, url: "https://www.moel.go.kr/news/enews/report/enewsList.do"}
+      # - {kind: press, source: search, url: "https://www.moel.go.kr/news/enews/report/enewsList.do"}  # 보도자료: 소속기관 행사가 대부분이라 받지 않음
       - {kind: policy, source: search, url: "https://www.moel.go.kr/policy/policydata/list.do"}   # 정책자료실(업무계획·업무보고 원문)
       - {kind: policy, source: search, url: "https://www.moel.go.kr/policy/busireport/main.do"}  # 업무보고
   - id: NAISC

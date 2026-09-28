@@ -4,7 +4,7 @@
   python -m harvest.collect --dry-run --classify --limit 5   # 새 글 5건만 분류해 출력
   python -m harvest.collect --send --classify            # 새 글을 분류해 승인 시트로 보낸다
 
-지금 구현된 수집기: MSIT(과기정통부 API), NIPA·KOSAC(보도자료), NIA·KERIS(보도자료·공지사항), MOE·MOEL·NAISC(보도자료·정책자료), EDU(시도교육청 주요업무계획)
+지금 구현된 수집기: MSIT(과기정통부 API), NIPA·KOSAC(보도자료), NIA·KERIS(보도자료·공지사항), MOE·NAISC(보도자료·정책자료), MOEL(정책자료실), EDU(시도교육청 주요업무계획)
 """
 
 from __future__ import annotations

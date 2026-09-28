@@ -1,4 +1,6 @@
-"""고용노동부(MOEL): 보도자료·정책자료실.
+"""고용노동부(MOEL): 정책자료실.
+
+보도자료는 받지 않는다(소속기관 행사 소식이 대부분이라 2026-09-28 담당자 결정으로 뺌). 게시판 구조는 다시 넣을 때를 위해 남겨 둔다
 
 보도자료 목록 /news/enews/report/enewsList.do?pageIndex=N → 표(table.tstyle_list), a href="enewsView.do?news_seq=N", 등록일 YYYY.MM.DD
 정책자료실 목록 /policy/policydata/list.do?pageIndex=N → a href="view.do?bbs_seq=N"
@@ -19,7 +21,7 @@ from .base import Attachment, Http, Post, collect_board, dotted_date
 BASE = "https://www.moel.go.kr"
 BOARDS = [
     # (kind, 목록, 상세 주소 정규식, 상세 주소 틀)
-    ("press", "/news/enews/report/enewsList.do", r"enewsView\.do\?news_seq=(\d+)", "/news/enews/report/enewsView.do?news_seq={}"),
+    # ("press", "/news/enews/report/enewsList.do", r"enewsView\.do\?news_seq=(\d+)", "/news/enews/report/enewsView.do?news_seq={}"),
     ("policy", "/policy/policydata/list.do", r"view\.do\?bbs_seq=(\d+)", "/policy/policydata/view.do?bbs_seq={}"),
 ]
 

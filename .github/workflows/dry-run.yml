@@ -37,5 +37,5 @@ jobs:
         if: always()
         run: |
           python -m harvest.collect --dry-run --only MOE --since-days 30 --probe-files
-          python -m harvest.collect --dry-run --only MOEL --since-days 30 --probe-files
+          python -m harvest.collect --dry-run --only MOEL --since-days 90 --probe-files
           python -m harvest.collect --dry-run --only NAISC --since-days 90 --probe-files
