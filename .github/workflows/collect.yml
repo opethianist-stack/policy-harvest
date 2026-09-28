@@ -2,15 +2,13 @@ name: collect
 
 # 새 글을 분류해 승인 시트로 보낸다. 시트가 중복을 거르고 이미 있는 글은 다시 분류하지 않으므로 여러 번 돌아도 새 글만 추가된다.
 # 매주 월 06:00 KST(일 21:00 UTC). 예약 실행은 기본 브랜치(main)에 있을 때만 동작한다.
+# 수집기 코드를 고칠 때는 dry-run 워크플로가 돈다(시트에 보내지 않음). 실제 전송을 바로 해보려면 이 파일을 고쳐 push한다.
 on:
   schedule:
     - cron: "0 21 * * 0"
   workflow_dispatch:
   push:
     paths:
-      - "harvest/sources/**"
-      - "harvest/collect.py"
-      - "harvest/classify.py"
       - ".github/workflows/collect.yml"
 
 permissions:
