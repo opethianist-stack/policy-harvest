@@ -4,7 +4,7 @@
   python -m harvest.collect --dry-run --classify --limit 5   # 새 글 5건만 분류해 출력
   python -m harvest.collect --send --classify            # 새 글을 분류해 승인 시트로 보낸다
 
-지금 구현된 수집기: MSIT(과기정통부 API), NIPA·KOSAC(보도자료)
+지금 구현된 수집기: MSIT(과기정통부 API), NIPA·KOSAC(보도자료), EDU(시도교육청 주요업무계획)
 """
 
 from __future__ import annotations
@@ -18,11 +18,11 @@ from pathlib import Path
 import yaml
 
 from . import sheet
-from .sources import kosac, msit, nipa
+from .sources import edu, kosac, msit, nipa
 from .sources.base import Http, Post
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCES = {"MSIT": msit.collect, "NIPA": nipa.collect, "KOSAC": kosac.collect}
+SOURCES = {"MSIT": msit.collect, "NIPA": nipa.collect, "KOSAC": kosac.collect, "EDU": edu.collect}
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 
@@ -36,6 +36,18 @@ def doc_name_from_title(title: str) -> str:
     t = re.sub(r"^\s*[\[\(（【<〈][^\]\)）】>〉]{1,15}[\]\)）】>〉]\s*", "", title)
     t = re.sub(r"[「」『』｢｣\"'“”‘’]", "", t)
     return re.sub(r"\s+", " ", t).strip()[:60]
+
+
+def probe_file(http: Http, url: str) -> str:
+    """첨부 주소를 받아 상태·형식·크기·첫 바이트를 요약한다."""
+    try:
+        r = http.get(url, stream=True, timeout=60)
+        head = next(r.iter_content(8), b"")
+        size = r.headers.get("content-length", "?")
+        r.close()
+        return f"HTTP {r.status_code} {r.headers.get('content-type')} {size}B {head[:5]!r}"
+    except Exception as e:  # 확인용이라 실패도 출력만 한다
+        return f"실패 {e}"
 
 
 def to_rows(posts: list[Post], agencies: dict[str, dict], now: datetime.datetime,
@@ -66,6 +78,7 @@ def to_rows(posts: list[Post], agencies: dict[str, dict], now: datetime.datetime
                 "doc_name": x.get("doc_name") or (r or {}).get("doc_name") or doc_name_from_title(p.title),
                 "kind": x.get("kind", ""),
                 "year": (r or {}).get("year") or p.posted_at[:4],
+                "file_no": str(a.get("file_no", "")),  # 시도교육청처럼 번호가 정해진 기관
             })
     return rows
 
@@ -76,6 +89,7 @@ def main(argv=None) -> int:
     ap.add_argument("--since-days", type=int, default=14, help="보도자료 수집 기간(일)")
     ap.add_argument("--classify", action="store_true", help="새 글을 Claude로 분류")
     ap.add_argument("--limit", type=int, default=0, help="분류할 새 글 수 상한(0이면 전부)")
+    ap.add_argument("--probe-files", action="store_true", help="첨부를 실제로 받아 형식·크기를 확인(dry-run용)")
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--send", action="store_true")
@@ -115,9 +129,14 @@ def main(argv=None) -> int:
         targets = posts[: args.limit] if args.limit else posts
         print(f"분류 {len(targets)}건 (모델 {classify.MODEL})")
         for p in targets:
-            results[p.key] = classify.classify(client, p, agencies[p.agency])
+            if p.kind != "plan":
+                results[p.key] = classify.classify(client, p, agencies[p.agency])
         if args.limit:
             posts = targets
+
+    for p in posts:  # 시도교육청 계획은 분류하지 않고 포함으로 둔다
+        if p.kind == "plan":
+            results[p.key] = edu.result(agencies[p.agency], p.post_id)
 
     for p in posts:
         r = results.get(p.key)
@@ -125,6 +144,11 @@ def main(argv=None) -> int:
         print(f"  {p.posted_at} [{p.kind}] {p.title[:45]} | 첨부 {','.join(a.ext for a in p.attachments)} | {tag}")
         if r:
             print(f"      문서명: {r['doc_name']} ({r['year']}) · {r['reason']}")
+
+    if args.probe_files:
+        for p in posts:
+            for att in p.attachments:
+                print(f"  [파일] {p.agency} {att.name}: {probe_file(http, att.url)}")
 
     rows = to_rows(posts, agencies, now, results)
     print(f"시트 행 {len(rows)}개")

@@ -16,6 +16,7 @@ import requests
 FIELDS = (
     "collected_at", "post_key", "category", "org", "board", "title", "post_url", "posted_at",
     "att_name", "att_url", "recommend", "doc_type", "topics", "reason", "doc_name", "kind", "year",
+    "file_no",
 )
 BATCH = 200
 RETRIES = 3  # 시트가 중복을 걸러주므로 다시 보내도 안전하다

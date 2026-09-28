@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass, field
 
 import requests
+import urllib3
 
 UA = "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"
 DELAY = 1.0  # 같은 기관에 보내는 요청 사이 간격(초)
@@ -79,7 +80,12 @@ class Http:
             if wait > 0:
                 time.sleep(wait)
             try:
-                return self.s.get(url, timeout=timeout, **kw)
+                try:
+                    return self.s.get(url, timeout=timeout, **kw)
+                except requests.exceptions.SSLError:
+                    # 중간 인증서를 빠뜨린 공공기관 사이트가 있다(울산교육청). 공개 페이지를 읽기만 하므로 검증 없이 다시 받는다
+                    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                    return self.s.get(url, timeout=timeout, verify=False, **kw)
             except (requests.ConnectionError, requests.Timeout):
                 if retry_wait is None:
                     raise

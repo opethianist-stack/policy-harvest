@@ -44,6 +44,7 @@ var COLUMNS = [
   ['상태', null],
   ['파일명', null],
   ['드라이브 링크', null],
+  ['지정 번호', 'file_no'], // 시도교육청처럼 번호가 정해진 문서(19-2 등). 비어 있으면 폴더 번호 다음 값을 쓴다
 ];
 
 // ── 파일명 규칙 (harvest/naming.py 와 같다) ─────────────────────────────
@@ -125,14 +126,27 @@ function zipEntries(names) {
   return stems.map(function (k) { return best[k]; });
 }
 
+/**
+ * 지정 번호가 있는 행의 번호. 같은 글의 행이 시트에 여러 개면 시트 순서대로 -1, -2를 붙인다
+ * (승인 시점이 달라도 번호가 바뀌지 않게 시트 전체를 기준으로 센다)
+ */
+function fixedNumber(fixed, rowIdx, sheetKeys) {
+  var key = sheetKeys[rowIdx], siblings = [];
+  sheetKeys.forEach(function (k, i) { if (k === key) siblings.push(i); });
+  return siblings.length > 1 ? fixed + '-' + (siblings.indexOf(rowIdx) + 1) : String(fixed);
+}
+
 // ── 시트 ──────────────────────────────────────────────────────────────
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
+  var head = COLUMNS.map(function (c) { return c[0]; });
   if (sh.getLastRow() === 0) {
-    sh.appendRow(COLUMNS.map(function (c) { return c[0]; }));
+    sh.appendRow(head);
     sh.setFrozenRows(1);
+  } else if (sh.getRange(1, head.length).getValue() !== head[head.length - 1]) {
+    sh.getRange(1, 1, 1, head.length).setValues([head]); // 코드에 새 열이 생기면 머리행을 맞춘다
   }
   return sh;
 }
@@ -252,7 +266,14 @@ function deliverApproved() {
   var it = folder.getFiles();
   while (it.hasNext()) existing.push(it.next().getName());
 
-  var numbers = assignNumbers(todo.map(function (i) { return data[i][c('글 키')]; }), nextGroupNumber(existing));
+  // 지정 번호가 없는 행만 폴더 번호 다음 값부터 묶어서 번호를 준다
+  var sheetKeys = data.map(function (row) { return row[c('글 키')]; });
+  var free = todo.filter(function (i) { return !String(data[i][c('지정 번호')]).trim(); });
+  var freeNumbers = assignNumbers(free.map(function (i) { return sheetKeys[i]; }), nextGroupNumber(existing));
+  var numbers = todo.map(function (i) {
+    var fixed = String(data[i][c('지정 번호')]).trim();
+    return fixed ? fixedNumber(fixed, i, sheetKeys) : freeNumbers[free.indexOf(i)];
+  });
 
   todo.forEach(function (i, n) {
     var row = data[i], r = i + 2;

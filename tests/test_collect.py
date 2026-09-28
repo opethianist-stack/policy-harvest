@@ -130,3 +130,48 @@ def test_kosac_list_and_detail():
     assert date == "2026-07-28" and body.startswith("[기사요약]")
     assert [(a.name, a.ext) for a in atts] == [("[보도자료] 「2026년 청소년 과학대장정」 발대식 개최.pdf", "pdf")]
     assert atts[0].url == "https://cdn.kosac.re.kr/files/cms/attach/202607/639b7ca0116348ac8bf82e72c953d4cb_1785227534435.pdf"
+
+
+EDU_ICE = """<ul>
+<li><a href="javascript:;" data-id="3309500" class="nttInfoBtn"><div class="txt"><p class="tit">2026년 인천교육계획</p></div></a>
+  <div><a href="https://ebook/251231/" class="btn_bl">E-book 보기</a>
+  <a href="javascript:goFileDown('5eccb8ac844d091f4c83b4df57fc21b7');" class="btn_blL">PDF 다운로드</a></div></li>
+<li><a href="javascript:;" data-id="3309417" class="nttInfoBtn"><div class="txt"><p class="tit">2025년 인천교육계획</p></div></a>
+  <div><a href="javascript:goFileDown('61e448ca7d6e42cb0525e2cd0f39f651');" class="btn_blL">PDF 다운로드</a></div></li>
+</ul>"""
+
+EDU_GNE = """<table class="tb1"><tr><th>글번호</th><th>표지</th><th>내용</th><th>자료받기</th></tr>
+<tr><td>4</td><td></td><td>2026 경남교육 등록일 : 2026-01-26</td><td><a href="/component/file/ND_fileDownload.do?q_fileSn=181567067&amp;q_fileId=fab5">PDF</a></td></tr>
+<tr><td>3</td><td></td><td>2025 경남교육 등록일 : 2025-03-31</td><td><a href="/component/file/ND_fileDownload.do?q_fileSn=181532831&amp;q_fileId=a407">PDF</a></td></tr>
+</table>"""
+
+EDU_GBE = """<title>경상북도교육청-경북교육2026</title>
+<a href="/main/cf/fileDownload.do?fileKey=e222516e166c749cc7c6222205dcf514&mi=17868">PDF 다운로드</a>
+<a href="/main/cf/fileDownload.do?fileKey=31cc184216aef104b481a297a889ec67   ">PDF 파일받기</a>"""
+
+
+def test_edu_find_link():
+    from harvest.sources import edu
+    plans = {o["id"]: o["plan"] for o in edu.offices()}
+    assert set(plans) == {"PEN", "ICE", "USE", "GOE", "GWE", "CBE", "JBE", "GBE", "GNE"}
+    assert edu.find_link(EDU_ICE, "https://www.ice.go.kr/x", plans["ICE"], 2026) == \
+        "https://www.ice.go.kr/comm/nttFileDownload.do?fileKey=5eccb8ac844d091f4c83b4df57fc21b7"
+    assert edu.find_link(EDU_ICE, "https://www.ice.go.kr/x", plans["ICE"], 2027) is None
+    assert edu.find_link(EDU_GNE, "https://www.gne.go.kr/user/bbs/x", plans["GNE"], 2026) == \
+        "https://www.gne.go.kr/component/file/ND_fileDownload.do?q_fileSn=181567067&q_fileId=fab5"
+    assert edu.find_link(EDU_GBE, "https://www.gbe.kr/main/x", plans["GBE"], 2026) == \
+        "https://www.gbe.kr/main/cf/fileDownload.do?fileKey=31cc184216aef104b481a297a889ec67"
+    # 페이지에 대상 연도가 없으면 고르지 않는다(작년 페이지가 그대로 남은 경우)
+    assert edu.find_link(EDU_GBE, "https://www.gbe.kr/main/x", plans["GBE"], 2027) is None
+
+
+def test_edu_rows_carry_fixed_number():
+    from harvest.sources import edu
+    from harvest.sources.base import Post
+    agencies = collect.load_agencies()
+    p = Post("CBE", "plan", "2026", "2026 주요업무계획", "2026-01-01", "u", attachments=[Attachment("주요업무계획.pdf", "f")])
+    now = datetime.datetime(2026, 9, 28, 9, 0)
+    [row] = collect.to_rows([p], agencies, now, {p.key: edu.result(agencies["CBE"], "2026")})
+    assert (row["file_no"], row["org"], row["doc_name"], row["year"], row["recommend"]) == \
+        ("19-11", "충청북도교육청", "주요업무계획", "2026", "포함")
+    assert edu.target_year(datetime.date(2026, 12, 1)) == 2027 and edu.target_year(datetime.date(2027, 2, 1)) == 2027

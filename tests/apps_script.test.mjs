@@ -65,3 +65,10 @@ test('zipEntries keeps storable files, one format per document', () => {
     [6, 'hwp', '업무계획·예산'], [7, 'hwp', ''],
   ]);
 });
+
+test('fixedNumber adds sub-numbers only when a post has several rows', () => {
+  const keys = ['PEN:plan:2026', 'CBE:plan:2026', 'MSIT:press:1', 'CBE:plan:2026'];
+  assert.equal(ctx.fixedNumber('19-2', 0, keys), '19-2');
+  assert.equal(ctx.fixedNumber('19-11', 1, keys), '19-11-1');
+  assert.equal(ctx.fixedNumber('19-11', 3, keys), '19-11-2');
+});

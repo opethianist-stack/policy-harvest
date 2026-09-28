@@ -23,7 +23,12 @@ FILE_HINT = re.compile(r"down|file|atch|attach|\.(pdf|hwpx?|zip|xlsx?|odt)\b", r
 def show(url: str, follow: str | None, grep: str | None = None, depth: int = 0) -> None:
     print(f"\n===== {url}")
     try:
-        r = requests.get(url, headers={"User-Agent": UA}, timeout=30)
+        try:
+            r = requests.get(url, headers={"User-Agent": UA}, timeout=30)
+        except requests.exceptions.SSLError:
+            print("(인증서 검증 실패, 검증 없이 다시 받음)")
+            requests.packages.urllib3.disable_warnings()
+            r = requests.get(url, headers={"User-Agent": UA}, timeout=30, verify=False)
     except requests.RequestException as e:
         print("요청 실패:", e)
         return
