@@ -29,7 +29,7 @@ def parse_list(html: str, path: str) -> list[tuple[str, str, str]]:
     """(글번호, 제목, 등록일) 목록."""
     s = BeautifulSoup(html, "html.parser")
     out = []
-    for tr in s.select("table.board_list tbody tr"):
+    for tr in s.select("table.board_list tr"):  # 서버 HTML에는 tbody가 없을 수 있다
         a = tr.find("a", href=re.compile(re.escape(path) + r"/\d+"))
         td = tr.select_one("td.date")
         date = DATE.search(td.get_text() if td else tr.get_text(" "))
