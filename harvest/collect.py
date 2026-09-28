@@ -1,7 +1,8 @@
 """수집 진입점.
 
-  python -m harvest.collect --dry-run            # 수집 결과를 로그로만 출력
-  python -m harvest.collect --send               # 승인 시트로 보낸다(분류 전 단계에서는 쓰지 않는다)
+  python -m harvest.collect --dry-run                    # 수집 결과만 출력
+  python -m harvest.collect --dry-run --classify --limit 5   # 새 글 5건만 분류해 출력
+  python -m harvest.collect --send --classify            # 새 글을 분류해 승인 시트로 보낸다
 
 지금 구현된 수집기: MSIT(과기정통부 API)
 """
@@ -31,17 +32,22 @@ def load_agencies() -> dict[str, dict]:
 
 
 def doc_name_from_title(title: str) -> str:
-    """문서명 초안: 괄호 머리말·끝 설명을 걷어낸다. 분류 단계에서 LLM이 다시 제안한다."""
+    """분류 전 문서명 초안: 괄호 머리말·따옴표를 걷어낸다."""
     t = re.sub(r"^\s*[\[\(（【<〈][^\]\)）】>〉]{1,15}[\]\)）】>〉]\s*", "", title)
-    t = re.sub(r"[「」『』\"'“”‘’]", "", t)
+    t = re.sub(r"[「」『』｢｣\"'“”‘’]", "", t)
     return re.sub(r"\s+", " ", t).strip()[:60]
 
 
-def to_rows(posts: list[Post], agencies: dict[str, dict], now: datetime.datetime) -> list[dict]:
+def to_rows(posts: list[Post], agencies: dict[str, dict], now: datetime.datetime,
+            results: dict[str, dict] | None = None) -> list[dict]:
+    results = results or {}
     rows = []
     for p in posts:
         a = agencies[p.agency]
-        for att in p.attachments:
+        r = results.get(p.key)
+        per_att = {x["index"]: x for x in (r or {}).get("attachments", [])}
+        for i, att in enumerate(p.attachments):
+            x = per_att.get(i, {})
             rows.append({
                 "collected_at": now.strftime("%Y-%m-%d %H:%M"),
                 "post_key": p.key,
@@ -53,9 +59,13 @@ def to_rows(posts: list[Post], agencies: dict[str, dict], now: datetime.datetime
                 "posted_at": p.posted_at,
                 "att_name": att.name,
                 "att_url": att.url,
-                "recommend": "검토 필요",
-                "doc_name": doc_name_from_title(p.title),
-                "year": p.posted_at[:4],
+                "recommend": r["recommend"] if r else "검토 필요",
+                "doc_type": r["doc_type"] if r else "",
+                "topics": r["topics"][:3] if r else [],
+                "reason": r["reason"] if r else "",
+                "doc_name": x.get("doc_name") or (r or {}).get("doc_name") or doc_name_from_title(p.title),
+                "kind": x.get("kind", ""),
+                "year": (r or {}).get("year") or p.posted_at[:4],
             })
     return rows
 
@@ -63,7 +73,9 @@ def to_rows(posts: list[Post], agencies: dict[str, dict], now: datetime.datetime
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", help="수집기 id 하나만(예: MSIT)")
-    ap.add_argument("--pages", type=int, default=1)
+    ap.add_argument("--since-days", type=int, default=14, help="보도자료 수집 기간(일)")
+    ap.add_argument("--classify", action="store_true", help="새 글을 Claude로 분류")
+    ap.add_argument("--limit", type=int, default=0, help="분류할 새 글 수 상한(0이면 전부)")
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--send", action="store_true")
@@ -71,6 +83,7 @@ def main(argv=None) -> int:
 
     agencies = load_agencies()
     now = datetime.datetime.now(KST)
+    since = now.date() - datetime.timedelta(days=args.since_days)
     http = Http()
     posts: list[Post] = []
     failed = []
@@ -78,20 +91,42 @@ def main(argv=None) -> int:
         if args.only and sid != args.only:
             continue
         try:
-            got = fn(http, pages=args.pages)
-            print(f"[{sid}] 게시글 {len(got)}건")
+            got = fn(http, since=since, today=now.date())
+            print(f"[{sid}] 게시글 {len(got)}건 (보도자료 {since} 이후, 주요정책 {now.year}년)")
             posts += got
         except Exception as e:  # 한 기관이 실패해도 나머지는 계속
             failed.append(sid)
             print(f"[{sid}] 실패: {e}")
 
-    rows = to_rows(posts, agencies, now)
-    no_att = sum(1 for p in posts if not p.attachments)
-    print(f"시트 행 {len(rows)}개 (첨부 없는 글 {no_att}건은 제외)")
-    for p in posts:
-        exts = ",".join(a.ext or "?" for a in p.attachments) or "-"
-        print(f"  {p.posted_at} [{p.kind}] {p.title[:50]}  첨부:{exts}")
+    no_att = [p for p in posts if not p.attachments]
+    posts = [p for p in posts if p.attachments]
+    if not sheet.missing_env():
+        seen = sheet.existing_keys()
+        before = len(posts)
+        posts = [p for p in posts if p.key not in seen]
+        print(f"시트에 이미 있는 글 {before - len(posts)}건 제외")
+    print(f"새 글 {len(posts)}건 (첨부 없는 글 {len(no_att)}건 제외)")
 
+    results: dict[str, dict] = {}
+    if args.classify and posts:
+        from . import classify
+        client = classify.client()
+        targets = posts[: args.limit] if args.limit else posts
+        print(f"분류 {len(targets)}건 (모델 {classify.MODEL})")
+        for p in targets:
+            results[p.key] = classify.classify(client, p, agencies[p.agency])
+        if args.limit:
+            posts = targets
+
+    for p in posts:
+        r = results.get(p.key)
+        tag = f"{r['recommend']}/{r['doc_type']}" if r else "-"
+        print(f"  {p.posted_at} [{p.kind}] {p.title[:45]} | 첨부 {','.join(a.ext for a in p.attachments)} | {tag}")
+        if r:
+            print(f"      문서명: {r['doc_name']} ({r['year']}) · {r['reason']}")
+
+    rows = to_rows(posts, agencies, now, results)
+    print(f"시트 행 {len(rows)}개")
     if args.send and rows:
         print("시트 전송:", sheet.post_rows(rows))
     return 1 if failed and not posts else 0

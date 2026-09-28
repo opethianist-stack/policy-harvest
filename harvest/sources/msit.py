@@ -7,6 +7,7 @@ files 가 한 건이면 배열이 아닐 수 있다. 한 페이지 최대 10건,
 
 from __future__ import annotations
 
+import datetime
 import os
 import re
 from urllib.parse import parse_qs, unquote, urlparse
@@ -63,24 +64,40 @@ def parse(data: dict, kind: str) -> tuple[int, list[Post]]:
     return int(body.get("totalCount") or 0), posts
 
 
-def collect(http: Http, pages: int = 1) -> list[Post]:
-    key = service_key()
-    if not key:
+MAX_PAGES = {"press": 15, "policy": 3}  # 보도자료는 하루 여러 건이라 기간을 채울 때까지 넘긴다
+
+
+def keep(p: Post, since: datetime.date, year: int) -> bool:
+    """보도자료는 since 이후, 주요정책은 올해 게시분만(목록이 날짜순이 아니다)."""
+    if p.kind == "press":
+        return p.posted_at >= since.isoformat()
+    return p.posted_at[:4] == str(year)
+
+
+def fetch_page(http: Http, path: str, extra: dict, page: int, kind: str) -> list[Post]:
+    res = http.get(BASE + path, params={"ServiceKey": service_key(), "pageNo": page, "numOfRows": 10,
+                                        "returnType": "json", **extra})
+    res.raise_for_status()
+    try:
+        data = res.json()
+    except ValueError:
+        raise RuntimeError(f"과기정통부 API가 JSON이 아닌 응답: {res.text[:200]}")
+    return parse(data, kind)[1]
+
+
+def collect(http: Http, since: datetime.date, today: datetime.date) -> list[Post]:
+    if not service_key():
         raise RuntimeError("DATA_GO_KR_KEY 가 없습니다")
     seen, out = set(), []
     for kind, path, extra in FEEDS:
-        for page in range(1, pages + 1):
-            res = http.get(BASE + path, params={"ServiceKey": key, "pageNo": page, "numOfRows": 10,
-                                                "returnType": "json", **extra})
-            res.raise_for_status()
-            try:
-                data = res.json()
-            except ValueError:
-                raise RuntimeError(f"과기정통부 API가 JSON이 아닌 응답: {res.text[:200]}")
-            _, posts = parse(data, kind)
+        for page in range(1, MAX_PAGES[kind] + 1):
+            posts = fetch_page(http, path, extra, page, kind)
             for p in posts:
-                if p.url in seen:
+                if p.url in seen or not keep(p, since, today.year):
                     continue
                 seen.add(p.url)
                 out.append(p)
+            # 보도자료는 최신순이라 기간 밖 글이 나오면 멈춘다
+            if not posts or (kind == "press" and min(p.posted_at for p in posts) < since.isoformat()):
+                break
     return out

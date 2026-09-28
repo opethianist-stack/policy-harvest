@@ -4,7 +4,8 @@
  * 부서 계정 소유의 승인 시트에 붙여 쓴다(확장 프로그램 → Apps Script).
  * - doPost: GitHub Actions 수집기가 보낸 행을 inbox 탭에 추가한다(중복 제외)
  * - deliverApproved: 승인 칸이 체크된 행의 원본 파일을 받아 정책문서 폴더에 파일명 규칙대로 저장한다
- *   (매일 01:00 트리거. Policy Fit 색인은 03:00)
+ *   (매일 01:00 트리거. Policy Fit 색인은 03:00). odt는 구글 문서로 변환해 PDF로 저장한다
+ *   → 편집기 왼쪽 "서비스 +"에서 Drive API(고급 서비스)를 추가해야 한다
  *
  * 설정 절차: docs/setup-apps-script.md
  * 이 파일의 원본은 GitHub 레포 apps-script/Code.gs 다. 시트에서 고치지 말고 레포를 고쳐 다시 붙여 넣는다.
@@ -14,6 +15,7 @@ var FOLDER_ID = '1-VLB42YhmZZIMxoR48J2qeIYgMYMdAK5'; // Policy Fit 정책문서 
 var SHEET_NAME = 'inbox';
 var MAX_BYTES = 50 * 1024 * 1024; // UrlFetchApp 응답 한도
 var INDEXED_EXT = ['pdf', 'hwpx', 'hwp']; // Policy Fit 색인이 읽는 형식
+var CONVERT_EXT = ['odt']; // PDF로 바꿔 저장하는 형식
 var CATEGORIES = ['부처', '공공기관', '교육청', '협의체'];
 
 // [열 이름, 수집기가 보내는 키]. 키가 없는 열은 담당자·스크립트가 채운다
@@ -146,6 +148,16 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** 시트에 있는 글 키 목록(중복 제거) */
+function postKeys_() {
+  var sh = sheet_();
+  var last = lastDataRow_(sh);
+  if (last < 2) return [];
+  var seen = {};
+  sh.getRange(2, col_('글 키'), last - 1, 1).getValues().forEach(function (r) { if (r[0]) seen[r[0]] = true; });
+  return Object.keys(seen);
+}
+
 function doPost(e) {
   var body;
   try {
@@ -155,6 +167,7 @@ function doPost(e) {
   }
   var token = PropertiesService.getScriptProperties().getProperty('TOKEN');
   if (!token || body.token !== token) return json_({ ok: false, error: '토큰 불일치' });
+  if (body.action === 'keys') return json_({ ok: true, keys: postKeys_() });
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -219,24 +232,40 @@ function deliverApproved() {
     var setStatus = function (s) { sh.getRange(r, col_('상태')).setValue(s); };
     try {
       var ext = extOf(row[c('첨부 이름')]) || extOf(row[c('첨부 URL')]);
-      if (INDEXED_EXT.indexOf(ext) < 0) { setStatus('실패: 색인되지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
+      var convert = CONVERT_EXT.indexOf(ext) >= 0;
+      if (INDEXED_EXT.indexOf(ext) < 0 && !convert) { setStatus('실패: 색인되지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
       var name = buildName(numbers[n], String(row[c('분류')]), row[c('기관')], row[c('문서명')],
-                           row[c('연도')], ext, row[c('구분')]);
+                           row[c('연도')], convert ? 'pdf' : ext, row[c('구분')]);
       if (existing.indexOf(name) >= 0) { setStatus('실패: 같은 이름 있음'); return; }
       var res = UrlFetchApp.fetch(String(row[c('첨부 URL')]), { muteHttpExceptions: true, followRedirects: true });
       if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
       var blob = res.getBlob();
       var bytes = blob.getBytes().length;
       if (bytes < 1024) { setStatus('실패: 파일이 너무 작음(' + bytes + 'B, 오류 페이지일 수 있음)'); return; }
+      if (convert) blob = convertToPdf_(blob, name);
       var file = folder.createFile(blob.setName(name));
       existing.push(name);
       sh.getRange(r, col_('파일명')).setValue(name);
       sh.getRange(r, col_('드라이브 링크')).setValue(file.getUrl());
-      setStatus('전송 완료 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'));
+      setStatus('전송 완료 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') +
+                (convert ? ' (' + ext + '→pdf 변환)' : ''));
     } catch (err) {
       setStatus('실패: ' + String(err.message || err).slice(0, 200));
     }
   });
+}
+
+/** odt 등을 구글 문서로 올려 변환한 뒤 PDF로 내보낸다. 임시 문서는 휴지통으로 보낸다 */
+function convertToPdf_(blob, name) {
+  if (typeof Drive === 'undefined') throw new Error('편집기 "서비스 +"에서 Drive API를 추가해야 odt를 변환할 수 있습니다');
+  var tmp = Drive.Files.create
+    ? Drive.Files.create({ name: 'policy-harvest 변환 중 ' + name, mimeType: MimeType.GOOGLE_DOCS }, blob)   // Drive API v3
+    : Drive.Files.insert({ title: 'policy-harvest 변환 중 ' + name, mimeType: MimeType.GOOGLE_DOCS }, blob, { convert: true }); // v2
+  try {
+    return DriveApp.getFileById(tmp.id).getAs(MimeType.PDF);
+  } finally {
+    DriveApp.getFileById(tmp.id).setTrashed(true);
+  }
 }
 
 /** 수동 점검: 폴더 파일명 중 규칙과 다른 것을 로그로 남긴다 */

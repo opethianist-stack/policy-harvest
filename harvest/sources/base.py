@@ -9,7 +9,7 @@ import requests
 
 UA = "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"
 DELAY = 1.0  # 같은 기관에 보내는 요청 사이 간격(초)
-PREFERRED_EXT = ("pdf", "hwpx", "hwp")  # Policy Fit 색인이 읽는 형식, 앞쪽이 우선
+PREFERRED_EXT = ("pdf", "hwpx", "hwp", "odt")  # 앞 3개는 Policy Fit 색인 형식, odt는 저장할 때 PDF로 변환한다
 
 
 @dataclass
