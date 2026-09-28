@@ -33,45 +33,43 @@ jobs:
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
-      - name: Peek ministries (detail 2)
+      - name: Peek ministries (detail 3)
         if: always()
         run: |
+          python scripts/peek.py "https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=107307&lev=0&m=020402&s=moe&opType=N" --grep "fileDown|downFile|[Dd]ownload" | cut -c1-400 | head -40 || true
           python - <<'PY'
-          import json, re, requests
+          import requests
           from bs4 import BeautifulSoup
           UA = {"User-Agent": "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"}
-          r = requests.get("https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe", headers=UA, timeout=60)
+          r = requests.get("https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=107307&lev=0&m=020402&s=moe&opType=N", headers=UA, timeout=60)
           s = BeautifulSoup(r.text, "html.parser")
-          tr = s.find("table").find_all("tr")[1]
-          print("MOE row", str(tr)[:1500])
-          i = r.text.find("function goView"); print("MOE goView", r.text[i:i+600] if i >= 0 else None)
-          for m in re.finditer(r"function (\w+)\s*\(([^)]*)\)\s*\{[^}]{0,300}viewRenew", r.text):
-              print("MOE fn", r.text[m.start():m.start()+500])
-          print("MOE paging", re.findall(r"(?:currPage|pageIndex|page)=\d+", r.text)[:5], re.findall(r"goPage\([^)]*\)|fnPage\([^)]*\)|linkPage\([^)]*\)", r.text)[:3])
-          r = requests.get("https://www.moel.go.kr/news/enews/report/enewsList.do", headers=UA, timeout=60)
-          print("MOEL paging", re.findall(r"(?:pageIndex|page|curPage)=\d+", r.text)[:5], re.findall(r"\w*[Pp]age\w*\(\s*'?\d+'?\s*\)", r.text)[:5])
-          d = requests.get("https://www.moel.go.kr/news/enews/report/enewsView.do?news_seq=20008", headers=UA, timeout=60).text
-          ds = BeautifulSoup(d, "html.parser")
-          for c in ds.find_all(["div", "td"], class_=True):
+          for c in s.find_all(["div", "td", "ul"], class_=True):
               t = " ".join(c.get_text(" ", strip=True).split())
-              if "상하이" in t and len(t) < 4000:
-                  print("MOEL body cand", c.name, c.get("class"), t[:120])
-          for cd in ("000011", "000012", "000010"):
-              j = requests.get(f"https://www.aikorea.go.kr/web/board/brdList.do?menu_cd={cd}", headers=UA, timeout=60).json()
-              print(cd, "boardAttUrl", j.get("boardAttUrl"), "paging", j.get("pagingInfoVO"))
-              for it in j["brdList"][:4]:
-                  print("  ", it["num"], it["menu_id"], it.get("write_dt"), it.get("disp_write_dt"), it["title"][:50], "|", it.get("att_file"), it.get("file_org"), it.get("file_save"), it.get("subpath"), it.get("pdf_file"), it.get("link"))
-          for u in ("https://www.aikorea.go.kr/web/board/brdDetail.do?menu_cd=000011&num=819",
-                    "https://www.aikorea.go.kr/web/board/brdView.do?menu_cd=000011&num=819"):
-              r = requests.get(u, headers=UA, timeout=60)
-              print("DETAIL", u, r.status_code, r.headers.get("content-type"), len(r.text))
-              try:
-                  j = r.json(); print("  keys", list(j)[:30])
-                  for k, v in j.items():
-                      if isinstance(v, list) and v and isinstance(v[0], dict) and any("file" in x.lower() for x in v[0]):
-                          print("  list", k, v[:3])
-              except Exception:
-                  print("  text", r.text[:300])
+              if ("모의평가" in t or "첨부" in t) and len(t) < 3000:
+                  print("MOE cand", c.name, c.get("class"), t[:160])
+          for a in s.find_all("a"):
+              h = (a.get("href") or "") + " " + (a.get("onclick") or "")
+              if "down" in h.lower() or "file" in h.lower():
+                  print("MOE a", h[:200], "|", a.get_text(" ", strip=True)[:80])
+          r = requests.get("https://www.moe.go.kr/boardCnts/listRenew.do?boardID=294&m=020402&s=moe&page=2", headers=UA, timeout=60)
+          print("MOE page=2 first", BeautifulSoup(r.text, "html.parser").find("table").find_all("tr")[1].get_text(" ", strip=True)[:80])
+          j = requests.get("https://www.aikorea.go.kr/web/board/brdDetail.do?menu_cd=000012&num=923", headers=UA, timeout=60).json()
+          print("NAISC brd keys", {k: (str(v)[:80] if v else v) for k, v in (j.get("brd") or {}).items() if v})
+          for f in j.get("fileList") or []:
+              print("NAISC file", f.get("file_org"), f.get("file_save"), f.get("subpath"), f.get("contenttype"), f.get("file_num"), f.get("num"), f.get("type"))
+              for u in (f"https://www.aikorea.go.kr/attach/cms/board/{f['subpath']}/{f['file_save']}",
+                        f"https://www.aikorea.go.kr/web/board/fileDown.do?num={f['num']}",
+                        f"https://www.aikorea.go.kr/web/board/brdFileDown.do?num={f['num']}",
+                        f"https://www.aikorea.go.kr/common/fileDown.do?num={f['num']}"):
+                  try:
+                      x = requests.get(u, headers=UA, timeout=60, stream=True)
+                      print("   try", u, x.status_code, x.headers.get("content-type"), x.headers.get("content-length"), next(x.iter_content(5), b""))
+                  except Exception as e:
+                      print("   try", u, "ERR", e)
+              break
+          for params in ({"menu_cd": "000012", "currentPage": 2}, {"menu_cd": "000012", "pageIndex": 2}, {"menu_cd": "000012", "page": 2}):
+              j = requests.get("https://www.aikorea.go.kr/web/board/brdList.do", params=params, headers=UA, timeout=60).json()
+              print("NAISC paging", params, j["pagingInfoVO"]["currentPageNo"], j["brdList"][0]["num"])
           PY
       - name: Peek ministries (detail)
         if: always()
