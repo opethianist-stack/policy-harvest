@@ -4,7 +4,8 @@
  * 부서 계정 소유의 승인 시트에 붙여 쓴다(확장 프로그램 → Apps Script).
  * - doPost: GitHub Actions 수집기가 보낸 행을 inbox 탭에 추가한다(중복 제외)
  * - deliverApproved: 승인 칸이 체크된 행의 원본 파일을 받아 정책문서 폴더에 파일명 규칙대로 저장한다
- *   (매일 01:00 트리거. Policy Fit 색인은 03:00). odt는 구글 문서로 변환해 PDF로 저장한다
+ *   (매일 01:00 트리거. Policy Fit 색인은 03:00). odt는 구글 문서로 변환해 PDF로 저장하고,
+ *   zip은 풀어서 안의 파일을 저장한다
  *   → 편집기 왼쪽 "서비스 +"에서 Drive API(고급 서비스)를 추가해야 한다
  *
  * 설정 절차: docs/setup-apps-script.md
@@ -16,6 +17,8 @@ var SHEET_NAME = 'inbox';
 var MAX_BYTES = 50 * 1024 * 1024; // UrlFetchApp 응답 한도
 var INDEXED_EXT = ['pdf', 'hwpx', 'hwp']; // Policy Fit 색인이 읽는 형식
 var CONVERT_EXT = ['odt']; // PDF로 바꿔 저장하는 형식
+var STORE_EXT = ['xlsx', 'xls']; // 색인되지 않지만 데이터 자료라 원본 그대로 저장하는 형식
+var UNZIP_EXT = ['zip']; // 풀어서 안의 파일을 저장하는 형식
 var CATEGORIES = ['부처', '공공기관', '교육청', '협의체'];
 
 // [열 이름, 수집기가 보내는 키]. 키가 없는 열은 담당자·스크립트가 채운다
@@ -96,6 +99,30 @@ function assignNumbers(postKeys, startGroup) {
     g++;
   });
   return out;
+}
+
+/**
+ * zip 안의 파일 이름 목록에서 저장할 것을 고른다. 폴더·이미지 등 저장하지 않는 형식은 빼고,
+ * 같은 문서가 여러 형식이면 pdf > hwpx > hwp > odt > xlsx > xls 순으로 하나만 남긴다.
+ * label은 파일명의 '구분' 칸에 쓸 원래 이름(20자). 인코딩이 깨진 이름이면 빈 문자열
+ */
+function zipEntries(names) {
+  var order = INDEXED_EXT.concat(CONVERT_EXT, STORE_EXT);
+  var best = {}, stems = [];
+  names.forEach(function (full, i) {
+    full = String(full || '');
+    if (/\/$/.test(full)) return;
+    var base = full.split('/').pop();
+    var ext = extOf(base);
+    if (order.indexOf(ext) < 0) return;
+    var stem = base.replace(/\.[^.]+$/, '');
+    var key = stem.toLowerCase();
+    if (!(key in best)) stems.push(key);
+    else if (order.indexOf(ext) >= order.indexOf(best[key].ext)) return;
+    var readable = !/[\uFFFD\u0080-\u00B6\u00B8-\u00FF]/.test(stem); // 가운뎃점(·)은 허용
+    best[key] = { index: i, ext: ext, label: readable ? cleanPart(stem).slice(0, 20).trim() : '' };
+  });
+  return stems.map(function (k) { return best[k]; });
 }
 
 // ── 시트 ──────────────────────────────────────────────────────────────
@@ -232,36 +259,75 @@ function deliverApproved() {
     var setStatus = function (s) { sh.getRange(r, col_('상태')).setValue(s); };
     try {
       var ext = extOf(row[c('첨부 이름')]) || extOf(row[c('첨부 URL')]);
-      var convert = CONVERT_EXT.indexOf(ext) >= 0;
-      if (INDEXED_EXT.indexOf(ext) < 0 && !convert) { setStatus('실패: 색인되지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
-      var name = buildName(numbers[n], String(row[c('분류')]), row[c('기관')], row[c('문서명')],
-                           row[c('연도')], convert ? 'pdf' : ext, row[c('구분')]);
-      if (existing.indexOf(name) >= 0) { setStatus('실패: 같은 이름 있음'); return; }
+      var known = INDEXED_EXT.concat(CONVERT_EXT, STORE_EXT, UNZIP_EXT);
+      if (known.indexOf(ext) < 0) { setStatus('실패: 저장하지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
       var res = UrlFetchApp.fetch(String(row[c('첨부 URL')]), { muteHttpExceptions: true, followRedirects: true });
       if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
       var blob = res.getBlob();
       var bytes = blob.getBytes().length;
       if (bytes < 1024) { setStatus('실패: 파일이 너무 작음(' + bytes + 'B, 오류 페이지일 수 있음)'); return; }
-      if (convert) blob = convertToPdf_(blob, name);
-      var file = folder.createFile(blob.setName(name));
-      existing.push(name);
-      sh.getRange(r, col_('파일명')).setValue(name);
-      sh.getRange(r, col_('드라이브 링크')).setValue(file.getUrl());
+
+      // 저장할 조각: 보통은 받은 파일 하나, zip이면 안의 파일들
+      var parts = [{ blob: blob, ext: ext, label: '' }];
+      if (UNZIP_EXT.indexOf(ext) >= 0) {
+        var inner = Utilities.unzip(blob.setContentType('application/zip'));
+        parts = zipEntries(inner.map(function (b) { return b.getName(); })).map(function (e) {
+          return { blob: inner[e.index], ext: e.ext, label: e.label };
+        });
+        if (!parts.length) { setStatus('실패: 압축 안에 저장할 파일 없음'); return; }
+      }
+
+      // 이름을 먼저 모두 정하고 겹치는지 본 뒤에 저장한다(일부만 저장되고 실패하는 일을 막는다)
+      var names = parts.map(function (part, j) {
+        var number = parts.length > 1 ? numbers[n] + '-' + (j + 1) : numbers[n];
+        var kind = [row[c('구분')], part.label || (parts.length > 1 ? '파일' + (j + 1) : '')]
+          .filter(function (x) { return x; }).join(' ');
+        return buildName(number, String(row[c('분류')]), row[c('기관')], row[c('문서명')], row[c('연도')],
+                         CONVERT_EXT.indexOf(part.ext) >= 0 ? 'pdf' : part.ext, kind);
+      });
+      var dup = names.filter(function (x, k) { return existing.indexOf(x) >= 0 || names.indexOf(x) !== k; });
+      if (dup.length) { setStatus('실패: 같은 이름 있음(' + dup[0] + ')'); return; }
+
+      var links = [], notes = [];
+      parts.forEach(function (part, j) {
+        var convert = CONVERT_EXT.indexOf(part.ext) >= 0;
+        var name = names[j];
+        var out = convert ? convertToPdf_(part.blob, name) : part.blob;
+        var file = folder.createFile(out.setName(name));
+        existing.push(name);
+        links.push(file.getUrl());
+        if (convert) notes.push(part.ext + '→pdf 변환');
+        if (STORE_EXT.indexOf(part.ext) >= 0) notes.push(part.ext + ' 원본 저장, 색인 안 됨');
+      });
+      if (parts.length > 1 || UNZIP_EXT.indexOf(ext) >= 0) notes.unshift('압축 풀어 ' + parts.length + '개');
+      sh.getRange(r, col_('파일명')).setValue(names.join('\n'));
+      sh.getRange(r, col_('드라이브 링크')).setValue(links.join('\n'));
       setStatus('전송 완료 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') +
-                (convert ? ' (' + ext + '→pdf 변환)' : ''));
+                (notes.length ? ' (' + notes.filter(function (x, k) { return notes.indexOf(x) === k; }).join(', ') + ')' : ''));
     } catch (err) {
       setStatus('실패: ' + String(err.message || err).slice(0, 200));
     }
   });
 }
 
-/** odt 등을 구글 문서로 올려 변환한 뒤 PDF로 내보낸다. 임시 문서는 휴지통으로 보낸다 */
+/**
+ * odt 등을 구글 문서로 올려 변환한 뒤 PDF로 내보낸다. 임시 문서는 휴지통으로 보낸다.
+ * 한글 프로그램에서 내보낸 odt는 구글 문서로 변환하면 모든 글자에 취소선이 붙는다.
+ * 보도자료에 실제 취소선이 쓰일 일은 거의 없으므로 변환된 문서의 취소선을 모두 지운다
+ */
 function convertToPdf_(blob, name) {
   if (typeof Drive === 'undefined') throw new Error('편집기 "서비스 +"에서 Drive API를 추가해야 odt를 변환할 수 있습니다');
   var tmp = Drive.Files.create
     ? Drive.Files.create({ name: 'policy-harvest 변환 중 ' + name, mimeType: MimeType.GOOGLE_DOCS }, blob)   // Drive API v3
     : Drive.Files.insert({ title: 'policy-harvest 변환 중 ' + name, mimeType: MimeType.GOOGLE_DOCS }, blob, { convert: true }); // v2
   try {
+    var doc = DocumentApp.openById(tmp.id);
+    [doc.getBody(), doc.getHeader(), doc.getFooter()].forEach(function (section) {
+      if (!section) return;
+      var text = section.editAsText();
+      if (text.getText().length) text.setStrikethrough(false);
+    });
+    doc.saveAndClose();
     return DriveApp.getFileById(tmp.id).getAs(MimeType.PDF);
   } finally {
     DriveApp.getFileById(tmp.id).setTrashed(true);
@@ -275,7 +341,8 @@ function checkFolderNames() {
     var n = it.next().getName();
     var parts = n.replace(/\.[^.]+$/, '').split('_');
     var ok = /^\d+(-\d+)*$/.test(parts[0]) && CATEGORIES.indexOf(parts[1]) >= 0 &&
-             /^(19|20)\d{2}$/.test(parts[parts.length - 1]) && INDEXED_EXT.indexOf(extOf(n)) >= 0;
+             /^(19|20)\d{2}$/.test(parts[parts.length - 1]) && INDEXED_EXT.concat(STORE_EXT).indexOf(extOf(n)) >= 0;
     if (!ok) Logger.log('규칙과 다름: ' + n);
+    else if (STORE_EXT.indexOf(extOf(n)) >= 0) Logger.log('색인 안 되는 형식(원본 보관): ' + n);
   }
 }

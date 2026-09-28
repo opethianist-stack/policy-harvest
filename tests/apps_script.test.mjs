@@ -54,3 +54,14 @@ test('lastDataRow_ ignores checkbox-only rows', () => {
   assert.equal(ctx.lastDataRow_(fake(1000)), 3);
   assert.equal(ctx.lastDataRow_(fake(1)), 1);
 });
+
+test('zipEntries keeps storable files, one format per document', () => {
+  const got = Array.from(ctx.zipEntries([
+    '시행계획/', '시행계획/붙임1 시행계획(최종).hwpx', '시행계획/붙임1 시행계획(최종).pdf',
+    '표지.jpg', '통계표.xlsx', '보도자료.odt', '업무계획·예산.hwp', 'Ç¥Áö.hwp', 'nested.zip',
+  ])).map(e => [e.index, e.ext, e.label]);
+  assert.deepEqual(got, [
+    [2, 'pdf', '붙임1 시행계획(최종)'], [4, 'xlsx', '통계표'], [5, 'odt', '보도자료'],
+    [6, 'hwp', '업무계획·예산'], [7, 'hwp', ''],
+  ]);
+});

@@ -34,8 +34,8 @@ def test_msit_key_decoding(monkeypatch):
 
 def test_pick_attachments_prefers_indexed():
     atts = [Attachment("a.odt", "1"), Attachment("A.hwp", "2"), Attachment("A.pdf", "3"), Attachment("b.zip", "4"),
-            Attachment("c.odt", "5"), Attachment("c.zip", "6")]
-    assert sorted(a.url for a in pick_attachments(atts)) == ["3", "4", "5"]
+            Attachment("c.odt", "5"), Attachment("c.zip", "6"), Attachment("d.JPG", "7"), Attachment("e.xlsx", "8")]
+    assert sorted(a.url for a in pick_attachments(atts)) == ["3", "4", "5", "8"]
 
 
 def test_msit_keep_window():
