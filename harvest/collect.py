@@ -18,6 +18,7 @@ from pathlib import Path
 import yaml
 
 from . import sheet
+from .classify import shorten
 from .sources import edu, keris, kosac, msit, nia, nipa
 from .sources.base import Http, Post
 
@@ -80,7 +81,7 @@ def to_rows(posts: list[Post], agencies: dict[str, dict], now: datetime.datetime
                 "doc_type": r["doc_type"] if r else "",
                 "topics": r["topics"][:3] if r else [],
                 "reason": r["reason"] if r else "",
-                "doc_name": x.get("doc_name") or (r or {}).get("doc_name") or doc_name_from_title(p.title),
+                "doc_name": x.get("doc_name") or (r or {}).get("doc_name") or shorten(doc_name_from_title(p.title)),
                 "kind": x.get("kind", ""),
                 "year": (r or {}).get("year") or p.posted_at[:4],
                 "file_no": str(a.get("file_no", "")),  # 시도교육청처럼 번호가 정해진 기관

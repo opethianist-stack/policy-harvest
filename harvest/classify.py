@@ -28,10 +28,11 @@ SYSTEM = """너는 교육·과학기술 분야 정책문서 수집기의 분류 
 - 경영목표·경영공시·사업계획·운영 성과보고서·연차보고서·평가 결과
 - 정책·사업 발표 보도자료, 그 붙임 계획서
 - 행사 개최·결과 보도자료(설명회·포럼·공모전·챌린지 등)
+- 공모전·경진대회·챌린지의 개최 안내와 모집요강(참가자를 모집하는 공고라도 포함)
 
 ## 제외
 - 인사·채용·조직 개편 안내
-- 입찰·계약·조달 공고와 결과(사업 모집 공고 포함)
+- 입찰·계약·조달 공고와 결과, 지원사업 참여기업 모집 공고(공모전·경진대회는 포함)
 - 장·차관 등의 방문·격려·명절 인사·간담회 참석 같은 동정
 - 민원·시설·홈페이지 이용 안내, 사칭 주의 등 단순 공지
 - 법령 서식·점검 항목표처럼 정책 내용이 없는 참고 서식
@@ -110,16 +111,16 @@ def classify(client: anthropic.Anthropic, post: Post, agency: dict) -> dict:
         else:
             res = client.messages.create(**params)
     except anthropic.APIError as e:
-        return failed(f"분류 API 오류: {getattr(e, 'message', e)}")
+        return failed(f"분류 API 오류: {getattr(e, 'message', e)}", post)
     if res.stop_reason == "refusal":
-        return failed("모델이 분류를 거절함")
+        return failed("모델이 분류를 거절함", post)
     if res.stop_reason == "max_tokens":
-        return failed("분류 응답이 잘림")
+        return failed("분류 응답이 잘림", post)
     text = next((b.text for b in res.content if b.type == "text"), "")
     try:
         out = json.loads(text)
     except ValueError:
-        return failed("분류 응답이 JSON이 아님")
+        return failed("분류 응답이 JSON이 아님", post)
     out["doc_name"] = shorten(out.get("doc_name", ""))
     for a in out.get("attachments", []):
         a["doc_name"] = shorten(a.get("doc_name", ""))
@@ -135,9 +136,13 @@ def shorten(name: str, limit: int = DOC_NAME_MAX) -> str:
     return cut if len(cut) >= limit // 2 else name[:limit]
 
 
-def failed(reason: str) -> dict:
-    return {"recommend": "검토 필요", "doc_type": "기타", "topics": [], "doc_name": "", "year": "",
-            "reason": reason, "attachments": []}
+KIND_DOC_TYPE = {"press": "보도자료", "plan": "업무계획"}
+
+
+def failed(reason: str, post: Post | None = None) -> dict:
+    """분류하지 못한 글. 문서 유형은 게시판으로 정하고(보도자료 게시판이면 보도자료), 문서명은 비워 두면 제목으로 채운다."""
+    return {"recommend": "검토 필요", "doc_type": KIND_DOC_TYPE.get(post.kind, "") if post else "", "topics": [],
+            "doc_name": "", "year": post.posted_at[:4] if post else "", "reason": reason, "attachments": []}
 
 
 def client() -> anthropic.Anthropic:
