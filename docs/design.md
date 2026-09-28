@@ -96,7 +96,9 @@ class Source:
 | 기관 | 목록 | 상세 주소 | 비고 |
 |---|---|---|---|
 | 과기정통부 | 공공데이터포털 API(보도자료·주요정책) | 응답의 `viewUrl` | 한 페이지 최대 10건. 첨부 `fileUrl`은 로그인 없이 받아진다. hwpx+odt 쌍이면 hwpx를 보낸다(Policy Fit 색인은 odt를 읽지 않음) |
-| 교육부 | 사이트 게시판 | 확인 필요 | 오픈API 없음. 보도자료·정책자료 게시판 구조 조사 필요 |
+| 교육부 | 보도자료 표, `listRenew.do?boardID=294&page=N` | `goView('294','boardSeq')` → `viewRenew.do?boardID=294&boardSeq=` | 구현(`harvest/sources/moe.py`). 첨부 `fileDown.do?fileSeq=`, 이름은 `.atta-inner`에서 크기 표시를 떼어 쓴다. 올해 업무계획 페이지(`infoRenew.do?page=72762`)의 `/upload/filedown/{연도}_business_plan_*.pdf`를 연 1회 글로 올린다 |
+| 고용노동부 | 보도자료·정책자료실 표, `?pageIndex=N` | `enewsView.do?news_seq=`, `policydata/view.do?bbs_seq=` | 구현(`harvest/sources/moel.py`). 첨부 `downloadFile.do`. 소속기관(공단·폴리텍 등) 보도자료가 많이 섞여 분류에서 거른다. 업무보고 메뉴는 스크립트로 그려 받지 않는다 |
+| 국가AI전략위 | JSON `brdList.do?menu_cd=&currentPage=N` | JSON `brdDetail.do?menu_cd=&num=` | 구현(`harvest/sources/naisc.py`). 000012 보도자료, 000011 정책자료. 첨부 `/attach/cms/board/{subpath}/{file_save}`. 000014는 인터뷰·기고라 제외 |
 | NIPA | 표(`table.tb01`), `?curPage=N` | `/home/4-4-1/{글번호}` | 구현(`harvest/sources/nipa.py`). 보도자료마다 pdf와 "보도자료(HWPX)및사진.zip"이 함께 올라와 pdf가 있으면 zip은 뺀다. 첨부 `/comm/getFile?...` |
 | NIA | 목록 태그(li), `?cbIdx=&pageIndex=N` | `doBbsFView('cbIdx','bcIdx',…)` → `View.do?cbIdx=&bcIdx=&parentSeq=` (GET으로 열린다) | 구현(`harvest/sources/nia.py`). 보도자료·공지사항. 제목은 링크 title 속성. 공지사항은 옛 고정 글이 위에 붙어 페이지 마지막 행 날짜로 멈춘다 |
 | KERIS | 표, `?mi=&bbsId=&currPage=N` | `nttView('nttSn')` → `selectNttInfo.do?mi=&nttSn=&bbsId=` | 구현(`harvest/sources/keris.py`). 보도자료·공지사항. 첨부 서버가 Content-Type을 `application-download`로 준다(Apps Script `blobOf_`가 처리). 보도자료의 행사 사진은 뺀다 |
