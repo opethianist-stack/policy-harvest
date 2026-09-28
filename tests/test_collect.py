@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from harvest import collect  # noqa: E402
@@ -71,3 +73,30 @@ def test_rows_use_classification():
     hwpx = next(r for r in rows if r["att_name"].endswith(".hwpx"))
     assert hwpx["recommend"] == "포함" and hwpx["topics"] == ["AI", "R&D", "인재"]
     assert {(r["doc_name"], r["kind"]) for r in rows} == {("업무계획 보도자료", "보도"), ("주요업무 추진계획", "별첨")}
+
+
+def test_http_retries_connection_errors(monkeypatch):
+    import requests
+    from harvest.sources import base
+    monkeypatch.setattr(base, "RETRY_WAITS", (0, 0))
+    calls = []
+
+    def flaky(url, **kw):
+        calls.append(url)
+        if len(calls) < 3:
+            raise requests.ConnectTimeout("timed out")
+        return "ok"
+
+    http = base.Http(delay=0)
+    monkeypatch.setattr(http.s, "get", flaky)
+    assert http.get("u") == "ok" and len(calls) == 3
+
+    def down(url, **kw):
+        calls.append(url)
+        raise requests.ConnectionError("down")
+
+    calls.clear()
+    monkeypatch.setattr(http.s, "get", down)
+    with pytest.raises(requests.ConnectionError):
+        http.get("u")
+    assert len(calls) == 3
