@@ -98,8 +98,8 @@ class Source:
 | 과기정통부 | 공공데이터포털 API(보도자료·주요정책) | 응답의 `viewUrl` | 한 페이지 최대 10건. 첨부 `fileUrl`은 로그인 없이 받아진다. hwpx+odt 쌍이면 hwpx를 보낸다(Policy Fit 색인은 odt를 읽지 않음) |
 | 교육부 | 사이트 게시판 | 확인 필요 | 오픈API 없음. 보도자료·정책자료 게시판 구조 조사 필요 |
 | NIPA | 표(`table.tb01`), `?curPage=N` | `/home/4-4-1/{글번호}` | 구현(`harvest/sources/nipa.py`). 보도자료마다 pdf와 "보도자료(HWPX)및사진.zip"이 함께 올라와 pdf가 있으면 zip은 뺀다. 첨부 `/comm/getFile?...` |
-| NIA | 목록 태그 | JS 함수 인자에서 글 번호 추출 → 상세 URL 조립 | |
-| KERIS | 표 | JS 함수 인자에서 글 번호 추출 | |
+| NIA | 목록 태그(li), `?cbIdx=&pageIndex=N` | `doBbsFView('cbIdx','bcIdx',…)` → `View.do?cbIdx=&bcIdx=&parentSeq=` (GET으로 열린다) | 구현(`harvest/sources/nia.py`). 보도자료·공지사항. 제목은 링크 title 속성. 공지사항은 옛 고정 글이 위에 붙어 페이지 마지막 행 날짜로 멈춘다 |
+| KERIS | 표, `?mi=&bbsId=&currPage=N` | `nttView('nttSn')` → `selectNttInfo.do?mi=&nttSn=&bbsId=` | 구현(`harvest/sources/keris.py`). 보도자료·공지사항. 첨부 서버가 Content-Type을 `application-download`로 준다(Apps Script `blobOf_`가 처리). 보도자료의 행사 사진은 뺀다 |
 | KOSAC | 표(`table.board_list`, tbody 없음), 기본 목록 → `?page=1`… | `/menus/272/boards/394/posts/{글번호}` | 구현(`harvest/sources/kosac.py`). 다운로드 버튼 href가 비어 있어 첨부 주소는 페이지 데이터의 `cdn.kosac.re.kr/files/cms/attach/…`, 이름은 `.view_file`에서 같은 순서로 짝짓는다. 구분 칸도 `class="date"`라 날짜가 있는 칸을 읽는다. 보도자료가 한 달에 1~4건 |
 | KEDI | 확인 필요 | `selectAnnounceForm.do?board_sq_no=3&article_sq_no=` | 목록 요청 흐름 확인 필요 |
 

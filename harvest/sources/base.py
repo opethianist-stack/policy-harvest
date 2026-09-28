@@ -92,3 +92,35 @@ class Http:
                 time.sleep(retry_wait)
             finally:
                 self._last = time.monotonic()
+
+
+def collect_board(http: Http, agency: str, kind: str, list_url: str, page_params, parse_list, detail_url,
+                  parse_detail, since, max_pages: int = 5) -> list[Post]:
+    """목록 → 상세를 따라가는 게시판 공통 흐름.
+
+    parse_list(html) -> [(글번호, 제목, 'YYYY-MM-DD')], parse_detail(html, url) -> (본문, [Attachment]).
+    공지로 고정된 옛 글이 목록 위에 붙는 게시판이 있어, 페이지의 마지막 행 날짜가 기간 밖이면 멈춘다.
+    """
+    out, seen = [], set()
+    for page in range(1, max_pages + 1):
+        res = http.get(list_url, params=page_params(page))
+        res.raise_for_status()
+        rows = [r for r in parse_list(res.text) if r[0] not in seen]
+        for no, title, date in rows:
+            seen.add(no)
+            if date < since.isoformat():
+                continue
+            url = detail_url(no)
+            d = http.get(url)
+            d.raise_for_status()
+            body, atts = parse_detail(d.text, url)
+            out.append(Post(agency, kind, no, title, date, url, body=body, attachments=pick_attachments(atts)))
+        if not rows or rows[-1][2] < since.isoformat():
+            break
+    return out
+
+
+def dotted_date(text: str) -> str | None:
+    """'2026.09.18' → '2026-09-18'."""
+    m = re.search(r"(20\d\d)\.(\d\d)\.(\d\d)", text)
+    return f"{m[1]}-{m[2]}-{m[3]}" if m else None

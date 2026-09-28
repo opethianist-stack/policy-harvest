@@ -28,6 +28,8 @@ jobs:
         run: |
           python -m harvest.collect --dry-run --only NIPA --since-days 90
           python -m harvest.collect --dry-run --only KOSAC --since-days 90
+          python -m harvest.collect --dry-run --only NIA --since-days 30
+          python -m harvest.collect --dry-run --only KERIS --since-days 30
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files

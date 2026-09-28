@@ -179,3 +179,50 @@ def test_edu_rows_carry_fixed_number():
     assert (row["file_no"], row["org"], row["doc_name"], row["year"], row["recommend"]) == \
         ("19-11", "충청북도교육청", "주요업무계획", "2026", "포함")
     assert edu.target_year(datetime.date(2026, 12, 1)) == 2027 and edu.target_year(datetime.date(2027, 2, 1)) == 2027
+
+
+def test_nia_list_and_detail():
+    from harvest.sources import nia
+    rows = nia.parse_list((FIX / "nia_list.html").read_text(encoding="utf-8"), "99835")
+    assert rows[0] == ("29538", "한국지능정보사회진흥원 직원 사칭 및 물품 발주·개인정보 요구 등에 대한 주의 안내", "2026-06-15")
+    assert rows[3] == ("29999", "양자 테스트베드 – 양자인터넷 회선 지원 이용기관 모집", "2026-09-17")
+    body, atts = nia.parse_detail((FIX / "nia_detail.html").read_text(encoding="utf-8"), "https://www.nia.or.kr/x")
+    assert body.startswith("「2026 국민행복 IT 경진대회」")
+    assert [a.ext for a in atts] == ["hwpx", "pdf"]  # 같은 파일 링크가 두 번 나와도 한 번만
+    assert [a.ext for a in pick_attachments(atts)] == ["pdf"]
+
+
+def test_keris_list_and_detail():
+    from harvest.sources import keris
+    rows = keris.parse_list((FIX / "keris_list.html").read_text(encoding="utf-8"))
+    assert rows[1] == ("43888", "[기간 연장] 2026년 학생대상 안전한 개인정보 보호 사례 공모전(~10/11)", "2026-09-15")
+    body, atts = keris.parse_detail((FIX / "keris_detail.html").read_text(encoding="utf-8"), "https://www.keris.or.kr/x")
+    assert atts[0].name == "260915_[KERIS 보도자료] 대한민국 교육정보화 30년, 에듀넷과 함께 미래교육을 그리다.hwp"
+    assert atts[0].url.startswith("https://www.keris.or.kr/common/nttFileDownload.do?fileKey=")
+    assert [a.ext for a in pick_attachments(atts)] == ["hwp"]  # 행사 사진은 뺀다
+
+
+def test_collect_board_skips_pinned_and_stops_on_last_row():
+    from harvest.sources.base import collect_board
+
+    class Res:
+        def __init__(self, text=""):
+            self.text = text
+
+        def raise_for_status(self):
+            pass
+
+    pages = {1: [("9", "고정 옛 글", "2025-11-24"), ("30", "새 글", "2026-09-20"), ("29", "새 글2", "2026-09-10")],
+             2: [("9", "고정 옛 글", "2025-11-24"), ("28", "옛 글", "2026-08-01")]}
+    calls = []
+
+    class FakeHttp:
+        def get(self, url, params=None):
+            calls.append((url, params))
+            return Res(str(params["p"]) if params else "")
+
+    posts = collect_board(FakeHttp(), "X", "notice", "L", lambda p: {"p": p}, lambda html: pages[int(html)],
+                          lambda no: f"D{no}", lambda html, url: ("", [Attachment("a.pdf", "u")]),
+                          datetime.date(2026, 9, 1), max_pages=5)
+    assert [p.post_id for p in posts] == ["30", "29"]
+    assert [c for c in calls if c[1]] == [("L", {"p": 1}), ("L", {"p": 2})]  # 2쪽 마지막 행이 기간 밖이라 멈춤
