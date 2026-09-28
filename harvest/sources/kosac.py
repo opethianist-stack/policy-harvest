@@ -54,13 +54,16 @@ def parse_detail(html: str) -> tuple[str, str, list[Attachment]]:
 
 
 def collect(http: Http, since: datetime.date, today: datetime.date) -> list[Post]:
-    out = []
+    out, seen = [], set()
     for kind, path in BOARDS:
-        for page in range(1, MAX_PAGES + 1):
-            res = http.get(f"{BASE}{path}", params={"page": page})
+        # 기본 목록은 page=0(데이터의 "page":0)인데 링크에는 page=1이 붙는다. 번호 체계가 불분명해
+        # 기본 목록 → page=1 → page=2 … 순으로 받고 이미 본 글은 건너뛴다
+        for page in [None, *range(1, MAX_PAGES + 1)]:
+            res = http.get(f"{BASE}{path}", params={} if page is None else {"page": page})
             res.raise_for_status()
-            rows = parse_list(res.text, path)
+            rows = [r for r in parse_list(res.text, path) if r[0] not in seen]
             for no, title, date in rows:
+                seen.add(no)
                 if date < since.isoformat():
                     continue
                 url = f"{BASE}{path}/{no}"
