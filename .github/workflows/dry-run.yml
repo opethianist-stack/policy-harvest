@@ -28,3 +28,18 @@ jobs:
         run: |
           python -m harvest.collect --dry-run --only NIPA --since-days 90
           python -m harvest.collect --dry-run --only KOSAC --since-days 90
+      - name: Peek education offices
+        run: |
+          G='[Dd]own|[Ff]ile|atch|\.(pdf|hwpx?)\b'
+          for u in \
+            "https://www.pen.go.kr/main/cm/cntnts/cntntsView.do?mi=31848&cntntsId=290" \
+            "https://www.ice.go.kr/ice/na/ntt/selectNttList.do?mi=11738&bbsId=1817" \
+            "https://use.go.kr/user/bbs/BD_selectBbs.do?q_bbsSn=1940&q_bbsDocNo=20251218112017796" \
+            "https://www.gwe.go.kr/main/content.do?key=m2307211210954" \
+            "https://www.cbe.go.kr/cbe/cm/cntnts/cntntsView.do?mi=11737&cntntsId=35634" \
+            "https://www.jbe.go.kr/index.jbe?menuCd=DOM_000000107003002000" \
+            "https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=9394" \
+            "https://www.gne.go.kr/user/bbs/BD_selectBbsList.do?q_bbsSn=1561"; do
+            python scripts/peek.py "$u" --grep "$G" | cut -c1-600 | head -60 || true
+          done
+          curl -sS -m 60 -o /dev/null -w "GOE pdf %{http_code} %{content_type} %{size_download}\n" "https://www.goe.go.kr/resource/goe/na/bbs_1995/2025/12/948f7aa5-e611-4b07-8dd7-cf096ca0c682.pdf" || true
