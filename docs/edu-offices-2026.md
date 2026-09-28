@@ -33,7 +33,7 @@
 | 19-10 | 강원특별자치도교육청 | 주요업무계획 | [주요업무계획](https://www.gwe.go.kr/main/content.do?key=m2307211210954) | 첨부 1개, 연도 확인 |
 | 19-11 | 충청북도교육청 | 주요업무계획 | [2026 주요업무계획](https://www.cbe.go.kr/cbe/cm/cntnts/cntntsView.do?mi=11737&cntntsId=35634) | 세부추진계획([링크](https://www.cbe.go.kr/cbe/cm/cntnts/cntntsView.do?mi=11738&cntntsId=35636))은 별도 |
 | 19-13 | 전북특별자치도교육청 | 전북교육계획(확인) | [2026 전북교육 계획](https://www.jbe.go.kr/index.jbe?menuCd=DOM_000000107003002000) | 다운로드·바로보기 링크 |
-| 19-15 | 경상북도교육청 | 주요업무계획(확인) | [교육계획](https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=9394) | 검색된 [다른 페이지](https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=3115)는 첨부가 섞여 있음 |
+| 19-15 | 경상북도교육청 | 주요업무계획 | [교육계획](https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=9394) | 검색된 [다른 페이지](https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=3115)는 첨부가 섞여 있음 |
 | 19-16 | 경상남도교육청 | 경남교육(확인) | [경남교육 게시판](https://www.gne.go.kr/user/bbs/BD_selectBbsList.do?q_bbsSn=1561) | PDF 4개 중 2026판 확인 |
 
 ## 직접 받아서 넣을 곳 (6)

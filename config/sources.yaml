@@ -244,7 +244,7 @@ agencies:
       - {kind: policy, source: search, url: "https://www.jne.go.kr/main/cm/cntnts/cntntsView.do?mi=225&cntntsId=31"}  # 전남교육 > 주요업무계획 (연도별 PDF)
   - id: GBE
     file_no: 19-15
-    plan: {url: "https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=9394", doc_name: 경북교육, link: "PDF 파일받기", page_year: true}  # 같은 페이지의 "PDF 다운로드"는 정보공개 운영 매뉴얼이다. 문서명은 표지 확인 후 시트에서 고친다
+    plan: {url: "https://www.gbe.kr/main/cm/cntnts/cntntsView.do?mi=4147&cntntsId=9394", doc_name: 주요업무계획, link: "PDF 파일받기", page_year: true}  # 같은 페이지의 "PDF 다운로드"는 정보공개 운영 매뉴얼이다. 문서명은 2026 표지 제목
     name: 경상북도교육청
     category: 교육청
     file_org: 경상북도교육청
