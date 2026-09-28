@@ -31,28 +31,3 @@ jobs:
       - name: Education offices (plan of this year, download check)
         run: |
           python -m harvest.collect --dry-run --only EDU --probe-files
-          python - <<'PY'
-          import requests
-          BR = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
-                "Accept": "*/*", "Accept-Language": "ko-KR,ko;q=0.9"}
-          tests = [
-            ("PEN", "https://www.pen.go.kr/main/cm/cntnts/cntntsView.do?mi=31848&cntntsId=290",
-                    "https://www.pen.go.kr/main/cf/fileDownload.do?fileKey=af38edbc916197d4c2ea12d661fa4f08"),
-            ("PEN-img", "https://www.pen.go.kr/main/cm/cntnts/cntntsView.do?mi=31848&cntntsId=290",
-                    "https://www.pen.go.kr/main/cf/fileDownload.do?fileKey=074a9943e38816a81ac9ba54718014a1"),
-            ("GWE", "https://www.gwe.go.kr/main/content.do?key=m2307211210954",
-                    "https://www.gwe.go.kr/cmm/fileDown.do?encKey=MTEyMzE4&type=fileMng"),
-            ("GWE-preview", "https://www.gwe.go.kr/main/content.do?key=m2307211210954",
-                    "https://www.gwe.go.kr/cmm/preview.do?encKey=MTEyMzE4&type=fileMng"),
-          ]
-          for name, page, f in tests:
-              for label, sess_first, hdr in (("plain-browser", False, BR), ("session-browser", True, BR)):
-                  s = requests.Session(); s.headers.update(hdr)
-                  if sess_first:
-                      s.get(page, timeout=60)
-                  try:
-                      r = s.get(f, headers={"Referer": page}, timeout=90)
-                      print(name, label, r.status_code, r.headers.get("content-type"), r.headers.get("content-disposition"), len(r.content), r.content[:8])
-                  except Exception as e:
-                      print(name, label, "ERR", e)
-          PY

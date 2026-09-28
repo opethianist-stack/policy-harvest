@@ -282,7 +282,7 @@ function deliverApproved() {
       var ext = extOf(row[c('첨부 이름')]) || extOf(row[c('첨부 URL')]);
       var known = INDEXED_EXT.concat(CONVERT_EXT, STORE_EXT, UNZIP_EXT);
       if (known.indexOf(ext) < 0) { setStatus('실패: 저장하지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
-      var res = UrlFetchApp.fetch(String(row[c('첨부 URL')]), { muteHttpExceptions: true, followRedirects: true });
+      var res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
       if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
       var blob = res.getBlob();
       var bytes = blob.getBytes().length;
@@ -329,6 +329,22 @@ function deliverApproved() {
       setStatus('실패: ' + String(err.message || err).slice(0, 200));
     }
   });
+}
+
+/**
+ * 원본 파일 받기. 원문 페이지를 Referer로 보낸다(없으면 빈 파일을 주는 사이트가 있다).
+ * 중간 인증서를 빠뜨린 사이트(울산교육청)는 인증서 검증 없이 한 번 더 받는다. 공개 문서를 받기만 한다
+ */
+function download_(url, referer) {
+  var opts = { muteHttpExceptions: true, followRedirects: true,
+               headers: { 'Referer': referer, 'Accept': '*/*', 'Accept-Language': 'ko-KR,ko;q=0.9' } };
+  try {
+    return UrlFetchApp.fetch(url, opts);
+  } catch (err) {
+    if (!/certificate|SSL|인증서/i.test(String(err.message || err))) throw err;
+    opts.validateHttpsCertificates = false;
+    return UrlFetchApp.fetch(url, opts);
+  }
 }
 
 /**

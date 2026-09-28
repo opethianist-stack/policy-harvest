@@ -195,7 +195,7 @@ agencies:
       - {kind: file, source: search, url: "https://www.goe.go.kr/resource/goe/na/bbs_1995/2025/12/948f7aa5-e611-4b07-8dd7-cf096ca0c682.pdf"}  # 경기교육 주요업무 계획 PDF
   - id: GWE
     file_no: 19-10
-    plan: {url: "https://www.gwe.go.kr/main/content.do?key=m2307211210954", doc_name: 주요업무계획, link: "^다운로드$", href: "fileDown", page_year: true}
+    plan: {url: "https://www.gwe.go.kr/main/content.do?key=m2307211210954", doc_name: 주요업무계획, link: "^다운로드$", href: "fileDown", title: "{year}년 주요업무계획"}
     name: 강원특별자치도교육청
     category: 교육청
     file_org: 강원특별자치도교육청

@@ -38,10 +38,14 @@ def doc_name_from_title(title: str) -> str:
     return re.sub(r"\s+", " ", t).strip()[:60]
 
 
-def probe_file(http: Http, url: str) -> str:
-    """첨부 주소를 받아 상태·형식·크기·첫 바이트를 요약한다."""
+# 실제 다운로드는 Apps Script(UrlFetchApp)가 한다. 일부 교육청은 User-Agent에 Mozilla가 없으면 빈 파일을 준다
+APPS_SCRIPT_UA = "Mozilla/5.0 (compatible; Google-Apps-Script; beanserver; +https://script.google.com)"
+
+
+def probe_file(http: Http, url: str, referer: str = "") -> str:
+    """첨부 주소를 Apps Script와 같은 방식(User-Agent·Referer)으로 받아 상태·형식·크기·첫 바이트를 요약한다."""
     try:
-        r = http.get(url, stream=True, timeout=60)
+        r = http.get(url, stream=True, timeout=60, headers={"User-Agent": APPS_SCRIPT_UA, "Referer": referer})
         head = next(r.iter_content(8), b"")
         size = r.headers.get("content-length", "?")
         r.close()
@@ -148,7 +152,7 @@ def main(argv=None) -> int:
     if args.probe_files:
         for p in posts:
             for att in p.attachments:
-                print(f"  [파일] {p.agency} {att.name}: {probe_file(http, att.url)}")
+                print(f"  [파일] {p.agency} {att.name}: {probe_file(http, att.url, p.url)}")
 
     rows = to_rows(posts, agencies, now, results)
     print(f"시트 행 {len(rows)}개")

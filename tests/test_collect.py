@@ -161,6 +161,10 @@ def test_edu_find_link():
         "https://www.gne.go.kr/component/file/ND_fileDownload.do?q_fileSn=181567067&q_fileId=fab5"
     assert edu.find_link(EDU_GBE, "https://www.gbe.kr/main/x", plans["GBE"], 2026) == \
         "https://www.gbe.kr/main/cf/fileDownload.do?fileKey=31cc184216aef104b481a297a889ec67"
+    gwe = '<a href="/cmm/fileDown.do?encKey=MTEyMzE4&amp;type=fileMng" title="2026년 주요업무계획 새창 다운로드 받기">다운로드</a>'
+    assert edu.find_link(gwe, "https://www.gwe.go.kr/main/x", plans["GWE"], 2026) == \
+        "https://www.gwe.go.kr/cmm/fileDown.do?encKey=MTEyMzE4&type=fileMng"
+    assert edu.find_link(gwe, "https://www.gwe.go.kr/main/x", plans["GWE"], 2027) is None
     # 페이지에 대상 연도가 없으면 고르지 않는다(작년 페이지가 그대로 남은 경우)
     assert edu.find_link(EDU_GBE, "https://www.gbe.kr/main/x", plans["GBE"], 2027) is None
 

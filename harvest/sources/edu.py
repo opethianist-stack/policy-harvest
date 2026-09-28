@@ -11,6 +11,7 @@ plan 설정
   link       고를 링크 글자(정규식)
   href       고를 링크 주소(정규식)
   near       링크를 감싼 행(li·tr)에 있어야 할 글자. {year}는 대상 연도로 바뀐다
+  title      링크 title 속성에 있어야 할 글자({year} 가능). 연도가 title에만 있는 페이지(강원)
   page_year  페이지 본문에 대상 연도가 있어야 한다(연도가 주소·제목에 드러나지 않는 페이지)
   js         href가 javascript 함수면 인자를 꺼낼 정규식, js_url 은 {0} 자리에 인자를 넣은 다운로드 주소
 """
@@ -52,6 +53,8 @@ def find_link(html: str, base: str, plan: dict, year: int) -> str | None:
         if plan.get("link") and not re.search(plan["link"], text):
             continue
         if plan.get("href") and not re.search(plan["href"], href):
+            continue
+        if plan.get("title") and not re.search(plan["title"].replace("{year}", str(year)), a.get("title") or ""):
             continue
         if near:
             box = a.find_parent(["li", "tr"])
