@@ -28,3 +28,20 @@ jobs:
         run: |
           python -m harvest.collect --dry-run --only NIPA --since-days 90
           python -m harvest.collect --dry-run --only KOSAC --since-days 90
+      - name: KOSAC parse check
+        run: |
+          python - <<'PY'
+          import re
+          from harvest.sources.base import Http
+          from harvest.sources import kosac
+          h = Http()
+          for params in ({}, {"page": 1}):
+              r = h.get(kosac.BASE + kosac.BOARDS[0][1], params=params)
+              print(params, r.status_code, len(r.text), r.url)
+              rows = kosac.parse_list(r.text, kosac.BOARDS[0][1])
+              print("rows", rows[:3])
+              i = r.text.find('class="board_list"')
+              print(repr(r.text[i:i + 1500]))
+          d = h.get(kosac.BASE + kosac.BOARDS[0][1] + "/61990")
+          print(kosac.parse_detail(d.text))
+          PY
