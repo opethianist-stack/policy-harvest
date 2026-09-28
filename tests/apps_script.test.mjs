@@ -81,3 +81,10 @@ test('blobOf_ tolerates malformed content types', () => {
   assert.equal(ctx.blobOf_(res({ 'Content-Type': 'application-download' }), 'pdf').type, 'application/pdf');
   assert.equal(ctx.blobOf_(res({}), 'odt').type, 'application/vnd.oasis.opendocument.text');
 });
+
+test('colLetter_ converts column numbers', () => {
+  assert.equal(ctx.colLetter_(1), 'A');
+  assert.equal(ctx.colLetter_(26), 'Z');
+  assert.equal(ctx.colLetter_(27), 'AA');
+  assert.equal(ctx.colLetter_(ctx.col_('상태')), 'S');
+});

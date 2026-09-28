@@ -96,6 +96,8 @@ def main(argv=None) -> int:
     ap.add_argument("--classify", action="store_true", help="새 글을 Claude로 분류")
     ap.add_argument("--limit", type=int, default=0, help="분류할 새 글 수 상한(0이면 전부)")
     ap.add_argument("--probe-files", action="store_true", help="첨부를 실제로 받아 형식·크기를 확인(dry-run용)")
+    ap.add_argument("--reclassify", action="store_true",
+                    help="시트에서 분류하지 못한('검토 필요') 글을 기간 안에서 다시 분류해 그 행을 고친다")
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--send", action="store_true")
@@ -121,7 +123,11 @@ def main(argv=None) -> int:
 
     no_att = [p for p in posts if not p.attachments]
     posts = [p for p in posts if p.attachments]
-    if not sheet.missing_env():
+    if args.reclassify:
+        retry = sheet.failed_keys()
+        posts = [p for p in posts if p.key in retry]
+        print(f"시트의 분류 실패 글 {len(retry)}건 중 기간 안에서 찾은 글 {len(posts)}건")
+    elif not sheet.missing_env():
         seen = sheet.existing_keys()
         before = len(posts)
         posts = [p for p in posts if p.key not in seen]
@@ -156,10 +162,20 @@ def main(argv=None) -> int:
             for att in p.attachments:
                 print(f"  [파일] {p.agency} {att.name}: {probe_file(http, att.url, p.url)}")
 
+    if args.classify:
+        # 분류 API 오류 등으로 분류하지 못한 글은 보내지 않는다. 시트에 없으니 다음 실행(기간 안)에서 다시 분류한다
+        unclassified = [p for p in posts if results.get(p.key, {}).get("recommend") == "검토 필요"]
+        if unclassified:
+            print(f"분류하지 못한 글 {len(unclassified)}건은 보내지 않음(다음 실행에서 다시 분류)")
+            posts = [p for p in posts if p not in unclassified]
+
     rows = to_rows(posts, agencies, now, results)
     print(f"시트 행 {len(rows)}개")
     if args.send and rows:
-        print("시트 전송:", sheet.post_rows(rows))
+        if args.reclassify:
+            print("시트 행 고침:", sheet.update_rows(rows))
+        else:
+            print("시트 전송:", sheet.post_rows(rows))
     if failed:
         # 다른 기관 결과는 보낸 뒤 실패로 끝내 워크플로가 빨갛게 표시되게 한다(GitHub가 메일로 알린다)
         print("수집 실패 기관:", ", ".join(failed))

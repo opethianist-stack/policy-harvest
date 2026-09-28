@@ -15,10 +15,10 @@
 |---|---|
 | 부처 4곳: 과기정통부(API), 교육부·고용노동부·국가AI전략위(사이트) | 그 밖의 부처 |
 | 시도교육청 17곳 주요업무계획(연 1회) | |
-| 공공기관 5곳: NIPA, NIA, KERIS, KOSAC, KEDI | KICE |
+| 공공기관 4곳: NIPA, NIA, KERIS, KOSAC | KEDI(2026-09-28 제외) |
 | 보도자료, 정책자료, NIA·KERIS 공지사항 | 입찰공고·사업공고(Policy Fit으로 인계, `docs/handoff-policy-fit.md`) |
 | | 정책브리핑(RSS 중단) |
-| 경영공시·경영목표 페이지의 첨부 변경 감지 | 알리오 경영공시 원문 수집(구조 미조사) |
+| | 기관 경영공시·경영목표 페이지, 알리오 경영공시 원문(2026-09-28 제외) |
 | 주 1회 수집, 글 단위 LLM 분류 | 임베딩 검색(RAG) |
 | 구글 시트 승인, 승인분 드라이브 업로드 | 나라장터 발주계획(KERIS, Policy Fit으로 인계) |
 | | 알리오플러스 API(기관정보 보강용, 2차) |
@@ -97,15 +97,14 @@ class Source:
 |---|---|---|---|
 | 과기정통부 | 공공데이터포털 API(보도자료·주요정책) | 응답의 `viewUrl` | 한 페이지 최대 10건. 첨부 `fileUrl`은 로그인 없이 받아진다. hwpx+odt 쌍이면 hwpx를 보낸다(Policy Fit 색인은 odt를 읽지 않음) |
 | 교육부 | 보도자료 표, `listRenew.do?boardID=294&page=N` | `goView('294','boardSeq')` → `viewRenew.do?boardID=294&boardSeq=` | 구현(`harvest/sources/moe.py`). 첨부 `fileDown.do?fileSeq=`, 이름은 `.atta-inner`에서 크기 표시를 떼어 쓴다. 올해 업무계획 페이지(`infoRenew.do?page=72762`)의 `/upload/filedown/{연도}_business_plan_*.pdf`를 연 1회 글로 올린다 |
-| 고용노동부 | 보도자료·정책자료실 표, `?pageIndex=N` | `enewsView.do?news_seq=`, `policydata/view.do?bbs_seq=` | 구현(`harvest/sources/moel.py`), 정책자료실만 받는다. 첨부 `downloadFile.do`. 보도자료는 소속기관(공단·폴리텍 등) 행사 소식이 대부분이라 받지 않는다(2026-09-28). 업무보고 메뉴는 스크립트로 그려 받지 않는다 |
+| 고용노동부 | 보도자료·정책자료실 표, `?pageIndex=N` | `enewsView.do?news_seq=`, `policydata/view.do?bbs_seq=` | 구현(`harvest/sources/moel.py`), 정책자료실만 받는다. 첨부 `downloadFile.do`. 보도자료는 소속기관(공단·폴리텍 등) 행사 소식이 대부분이라 받지 않는다(2026-09-28). 업무보고 메뉴는 받지 않는다 |
 | 국가AI전략위 | JSON `brdList.do?menu_cd=&currentPage=N` | JSON `brdDetail.do?menu_cd=&num=` | 구현(`harvest/sources/naisc.py`). 000012 보도자료, 000011 정책자료. 첨부 `/attach/cms/board/{subpath}/{file_save}`. 000014는 인터뷰·기고라 제외 |
 | NIPA | 표(`table.tb01`), `?curPage=N` | `/home/4-4-1/{글번호}` | 구현(`harvest/sources/nipa.py`). 보도자료마다 pdf와 "보도자료(HWPX)및사진.zip"이 함께 올라와 pdf가 있으면 zip은 뺀다. 첨부 `/comm/getFile?...` |
 | NIA | 목록 태그(li), `?cbIdx=&pageIndex=N` | `doBbsFView('cbIdx','bcIdx',…)` → `View.do?cbIdx=&bcIdx=&parentSeq=` (GET으로 열린다) | 구현(`harvest/sources/nia.py`). 보도자료·공지사항. 제목은 링크 title 속성. 공지사항은 옛 고정 글이 위에 붙어 페이지 마지막 행 날짜로 멈춘다 |
 | KERIS | 표, `?mi=&bbsId=&currPage=N` | `nttView('nttSn')` → `selectNttInfo.do?mi=&nttSn=&bbsId=` | 구현(`harvest/sources/keris.py`). 보도자료·공지사항. 첨부 서버가 Content-Type을 `application-download`로 준다(Apps Script `blobOf_`가 처리). 보도자료의 행사 사진은 뺀다 |
 | KOSAC | 표(`table.board_list`, tbody 없음), 기본 목록 → `?page=1`… | `/menus/272/boards/394/posts/{글번호}` | 구현(`harvest/sources/kosac.py`). 다운로드 버튼 href가 비어 있어 첨부 주소는 페이지 데이터의 `cdn.kosac.re.kr/files/cms/attach/…`, 이름은 `.view_file`에서 같은 순서로 짝짓는다. 구분 칸도 `class="date"`라 날짜가 있는 칸을 읽는다. 보도자료가 한 달에 1~4건 |
-| KEDI | 확인 필요 | `selectAnnounceForm.do?board_sq_no=3&article_sq_no=` | 목록 요청 흐름 확인 필요 |
 
-경영공시·경영목표 페이지(NIPA `/home/3-2`, KOSAC `/menus/331`·`/menus/208`, KEDI `managementgoal.do`·`businessplan.do`)는 게시판이 아니다. 페이지의 첨부 링크 목록을 글처럼 다루고, 새 첨부가 나타날 때만 행을 만든다. 글 키는 `{agency}:disclosure:{첨부 URL 해시}`로 한다.
+KEDI와 기관 경영공시·경영목표 페이지, 고용노동부 업무보고는 받지 않는다(2026-09-28 담당자 결정).
 
 ### 요청 예절
 
@@ -211,7 +210,6 @@ class Source:
 3. 분류: 프롬프트·스키마, 지난 글 수십 건으로 추천 결과 점검
 4. collect 워크플로 주간 실행
 5. 승인 시트·Apps Script 설정(`docs/setup-apps-script.md`) 후 승인분 저장 시험
-6. 경영공시 페이지 첨부 변경 감지
 
 ## 11. 결정이 필요한 것
 

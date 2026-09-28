@@ -43,7 +43,6 @@ agencies:
     boards:
       # - {kind: press, source: search, url: "https://www.moel.go.kr/news/enews/report/enewsList.do"}  # 보도자료: 소속기관 행사가 대부분이라 받지 않음
       - {kind: policy, source: search, url: "https://www.moel.go.kr/policy/policydata/list.do"}   # 정책자료실(업무계획·업무보고 원문)
-      - {kind: policy, source: search, url: "https://www.moel.go.kr/policy/busireport/main.do"}  # 업무보고
   - id: NAISC
     name: 국가인공지능전략위원회
     category: 부처
@@ -64,7 +63,6 @@ agencies:
     home: https://www.nipa.kr
     boards:
       - {kind: press, source: probe, url: "https://www.nipa.kr/home/4-4-1"}
-      - {kind: disclosure, source: probe, url: "https://www.nipa.kr/home/3-2"}
   - id: NIA
     category: 공공기관
     file_org: NIA
@@ -94,18 +92,7 @@ agencies:
     home: https://www.kosac.re.kr/main
     boards:
       - {kind: press, source: probe, url: "https://www.kosac.re.kr/menus/272/boards/394/posts"}
-      - {kind: disclosure, source: probe, url: "https://www.kosac.re.kr/menus/331/contents/331"}
-      - {kind: disclosure, source: probe, url: "https://www.kosac.re.kr/menus/208/contents/208"}
-  - id: KEDI
-    category: 공공기관
-    file_org: KEDI
-    name: 한국교육개발원
-    ministry: 국무조정실(경제·인문사회연구회)
-    home: https://www.kedi.re.kr
-    boards:
-      - {kind: press, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/announce/listBroadAnnounceForm.do"}
-      - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/managementgoal.do"}
-      - {kind: disclosure, source: probe, url: "https://www.kedi.re.kr/khome/mobile2/intro/businessplan.do"}
+  # KEDI(한국교육개발원)와 기관 경영공시 페이지, 고용노동부 업무보고는 받지 않는다(2026-09-28 담당자 결정)
 
   # ── 시도교육청 (연 1회 주요업무계획. 12~2월에 확인. 번호 file_no 고정, 문서명은 교육청이 붙인 이름) ──
   - id: SEN
