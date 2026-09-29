@@ -19,6 +19,8 @@ var INDEXED_EXT = ['pdf', 'hwpx', 'hwp']; // Policy Fit 색인이 읽는 형식
 var CONVERT_EXT = ['odt']; // PDF로 바꿔 저장하는 형식
 var STORE_EXT = ['xlsx', 'xls']; // 색인되지 않지만 데이터 자료라 원본 그대로 저장하는 형식
 var UNZIP_EXT = ['zip']; // 풀어서 안의 파일을 저장하는 형식
+// 구글 서버(해외)에서 받을 수 없는 사이트. 받기를 시도하면 한 건에 몇 분씩 멈췄다가 실패해(2026-09-29 과기부) 바로 실패로 적는다
+var UNREACHABLE_HOSTS = ['www.msit.go.kr', 'msit.go.kr'];
 var CATEGORIES = ['부처', '공공기관', '교육청', '협의체'];
 
 // [열 이름, 수집기가 보내는 키]. 키가 없는 열은 담당자·스크립트가 채운다
@@ -368,7 +370,7 @@ function markReviewed() {
 // ── 승인 행 → 드라이브 ─────────────────────────────────────────────────
 
 // Apps Script 한 번 실행은 6분에서 끊긴다. 그 전에 멈추고 1분 뒤 이어서 돌 트리거를 건다
-var TIME_BUDGET_MS = 4.5 * 60 * 1000;
+var TIME_BUDGET_MS = 4 * 60 * 1000;
 
 function deliverApproved() {
   var started = Date.now();
@@ -413,6 +415,10 @@ function deliverApproved() {
       var ext = extOf(row[c('첨부 이름')]) || extOf(row[c('첨부 URL')]);
       var known = INDEXED_EXT.concat(CONVERT_EXT, STORE_EXT, UNZIP_EXT);
       if (known.indexOf(ext) < 0) { setStatus('실패: 저장하지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
+      var host = (/^https?:\/\/([^\/:?#]+)/i.exec(String(row[c('첨부 URL')])) || [])[1] || '';
+      if (UNREACHABLE_HOSTS.indexOf(host.toLowerCase()) >= 0) {
+        setStatus('실패: 해외에서 받을 수 없는 사이트(' + host + '). 원문 링크에서 직접 받아 넣는다'); return;
+      }
       var res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
       if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
       var blob = blobOf_(res, ext);
