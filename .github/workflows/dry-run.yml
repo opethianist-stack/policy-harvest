@@ -23,10 +23,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: MSIT file reachability (temporary)
-        run: |
-          curl -sS -m 30 -o /tmp/f -w "%{http_code} %{content_type} %{size_download}B\n" -A "Mozilla/5.0" -e "https://www.msit.go.kr/" "https://www.msit.go.kr/ssm/file/fileDown.do?atchFileNo=55158&fileOrd=2" || true
-          head -c 8 /tmp/f | od -c | head -2 || true
       # 웹 게시판 수집기만 돌린다. 과기정통부 API(공공데이터포털)는 해외 러너 접속이 자주 끊겨 여기서는 빼고 collect 워크플로에서 확인한다
       - name: Collect (dry run, web boards, last 90 days)
         run: |
