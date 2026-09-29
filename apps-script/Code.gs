@@ -367,7 +367,12 @@ function markReviewed() {
 
 // ── 승인 행 → 드라이브 ─────────────────────────────────────────────────
 
+// Apps Script 한 번 실행은 6분에서 끊긴다. 그 전에 멈추고 1분 뒤 이어서 돌 트리거를 건다
+var TIME_BUDGET_MS = 4.5 * 60 * 1000;
+
 function deliverApproved() {
+  var started = Date.now();
+  clearContinuation_();
   var sh = sheet_();
   var last = lastDataRow_(sh);
   if (last < 2) return;
@@ -377,7 +382,8 @@ function deliverApproved() {
   var todo = [];
   data.forEach(function (row, i) {
     var status = String(row[c('상태')]);
-    if (row[c('승인')] === true && status.indexOf('전송 완료') !== 0) todo.push(i);
+    // 실패한 행은 다시 시도하지 않는다(원인을 고친 뒤 상태를 '대기'로 바꾸면 다시 보낸다)
+    if (row[c('승인')] === true && (status === '대기' || status === '')) todo.push(i);
   });
   if (!todo.length) return;
 
@@ -395,7 +401,12 @@ function deliverApproved() {
     return fixed ? fixedNumber(fixed, i, sheetKeys) : freeNumbers[free.indexOf(i)];
   });
 
+  var stopped = false;
   todo.forEach(function (i, n) {
+    if (stopped || Date.now() - started > TIME_BUDGET_MS) {
+      if (!stopped) { stopped = true; scheduleContinuation_(); }
+      return;
+    }
     var row = data[i], r = i + 2;
     var setStatus = function (s) { sh.getRange(r, col_('상태')).setValue(s); };
     try {
@@ -455,6 +466,22 @@ function deliverApproved() {
  * 원본 파일 받기. 원문 페이지를 Referer로 보낸다(없으면 빈 파일을 주는 사이트가 있다).
  * 중간 인증서를 빠뜨린 사이트(울산교육청)는 인증서 검증 없이 한 번 더 받는다. 공개 문서를 받기만 한다
  */
+/** 남은 승인 행을 이어서 보내도록 1분 뒤 한 번 도는 트리거를 건다 */
+function scheduleContinuation_() {
+  ScriptApp.newTrigger('continueDelivery').timeBased().after(60 * 1000).create();
+}
+
+function continueDelivery() {
+  deliverApproved();
+}
+
+/** 이어 보내기 트리거를 지운다(한 번 쓰고 남은 트리거가 쌓이지 않게). 매일 01시 트리거는 건드리지 않는다 */
+function clearContinuation_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'continueDelivery') ScriptApp.deleteTrigger(t);
+  });
+}
+
 function download_(url, referer) {
   var opts = { muteHttpExceptions: true, followRedirects: true,
                headers: { 'Referer': referer, 'Accept': '*/*', 'Accept-Language': 'ko-KR,ko;q=0.9' } };
