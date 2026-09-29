@@ -15,7 +15,7 @@
 |---|---|
 | 부처 4곳: 과기정통부(API), 교육부·고용노동부·국가AI전략위(사이트) | 그 밖의 부처 |
 | 시도교육청 17곳 주요업무계획(연 1회) | |
-| 공공기관 4곳: NIPA, NIA, KERIS, KOSAC | KEDI(2026-09-28 제외) |
+| 공공기관 4곳: NIPA, NIA, KERIS, KOSAC | KEDI(2026-09-28 제외), KICE(robots.txt가 전체 차단) |
 | 보도자료, 정책자료, NIA·KERIS 공지사항 | 입찰공고·사업공고(Policy Fit으로 인계, `docs/handoff-policy-fit.md`) |
 | | 정책브리핑(RSS 중단) |
 | | 기관 경영공시·경영목표 페이지, 알리오 경영공시 원문(2026-09-28 제외) |
@@ -103,6 +103,8 @@ class Source:
 | NIA | 목록 태그(li), `?cbIdx=&pageIndex=N` | `doBbsFView('cbIdx','bcIdx',…)` → `View.do?cbIdx=&bcIdx=&parentSeq=` (GET으로 열린다) | 구현(`harvest/sources/nia.py`). 보도자료·공지사항. 제목은 링크 title 속성. 공지사항은 옛 고정 글이 위에 붙어 페이지 마지막 행 날짜로 멈춘다 |
 | KERIS | 표, `?mi=&bbsId=&currPage=N` | `nttView('nttSn')` → `selectNttInfo.do?mi=&nttSn=&bbsId=` | 구현(`harvest/sources/keris.py`). 보도자료·공지사항. 첨부 서버가 Content-Type을 `application-download`로 준다(Apps Script `blobOf_`가 처리). 보도자료의 행사 사진은 뺀다 |
 | KOSAC | 표(`table.board_list`, tbody 없음), 기본 목록 → `?page=1`… | `/menus/272/boards/394/posts/{글번호}` | 구현(`harvest/sources/kosac.py`). 다운로드 버튼 href가 비어 있어 첨부 주소는 페이지 데이터의 `cdn.kosac.re.kr/files/cms/attach/…`, 이름은 `.view_file`에서 같은 순서로 짝짓는다. 구분 칸도 `class="date"`라 날짜가 있는 칸을 읽는다. 보도자료가 한 달에 1~4건 |
+
+과기정통부 첨부는 구글 서버(Apps Script)에서 받을 수 없어 GitHub 러너가 매일 00:30에 대신 받아 시트 웹 앱의 중계 폴더에 넣는다(`harvest/relay.py`, `relay` 워크플로, `docs/setup-apps-script.md`).
 
 KEDI와 기관 경영공시·경영목표 페이지, 고용노동부 업무보고는 받지 않는다(2026-09-28 담당자 결정).
 

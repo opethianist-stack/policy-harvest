@@ -64,6 +64,16 @@ def update_rows(rows: list[dict], session: requests.Session | None = None) -> in
     return n
 
 
+def relay_list(session: requests.Session | None = None) -> list[dict]:
+    """러너가 대신 받아야 할 첨부(승인된 대기 행 중 Apps Script가 받을 수 없는 사이트, 아직 중계 안 된 것)."""
+    return _call(session or requests.Session(), {"action": "relay_list"}).get("rows", [])
+
+
+def relay_put(att_url: str, data_b64: str, session: requests.Session | None = None) -> dict:
+    """받은 파일(base64)을 시트 웹 앱의 중계 폴더에 넣는다."""
+    return _call(session or requests.Session(), {"action": "relay_put", "att_url": att_url, "data": data_b64})
+
+
 def _post_batch(s, batch: list[dict], sleep=time.sleep) -> dict:
     return _call(s, {"rows": batch}, sleep)
 
