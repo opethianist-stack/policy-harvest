@@ -14,7 +14,7 @@ UA = "policy-harvest/0.1 (+https://github.com/opethianist-stack/policy-harvest)"
 DELAY = 1.0  # 같은 기관에 보내는 요청 사이 간격(초)
 RETRY_WAITS = (10, 30)  # 연결 실패·타임아웃 때 다시 시도하기 전 대기(초). 공공데이터포털이 가끔 연결을 받지 않는다
 PREFERRED_EXT = ("pdf", "hwpx", "hwp", "odt")  # 앞 3개는 Policy Fit 색인 형식, odt는 저장할 때 PDF로 변환한다
-REDUNDANT_ZIP = re.compile(r"사진|photo|hwpx?|한글", re.I)
+REDUNDANT_ZIP = re.compile(r"사진|photo|hwpx?|한글|\(html\)|\(md\)", re.I)  # 국가AI전략위는 pdf와 함께 (HTML)·(MD) 판 zip을 올린다
 IMAGE_EXT = {"jpg", "jpeg", "png", "gif", "bmp", "tif", "tiff", "webp"}  # 글자가 없어 색인되지 않으므로 받지 않는다
 
 

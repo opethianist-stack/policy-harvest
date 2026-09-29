@@ -88,3 +88,11 @@ test('colLetter_ converts column numbers', () => {
   assert.equal(ctx.colLetter_(27), 'AA');
   assert.equal(ctx.colLetter_(ctx.col_('상태')), 'S');
 });
+
+test('needsRelay_ covers listed hosts and address errors', () => {
+  assert.equal(ctx.needsRelay_('https://www.msit.go.kr/ssm/file/fileDown.do?atchFileNo=1', '대기'), true);
+  assert.equal(ctx.needsRelay_('https://www.moe.go.kr/boardCnts/fileDown.do?fileSeq=1', '대기'), true);
+  assert.equal(ctx.needsRelay_('https://www.nia.or.kr/common/board/Download.do?x=1', '대기'), false);
+  assert.equal(ctx.needsRelay_('https://www.nia.or.kr/common/board/Download.do?x=1', '중계 대기'), true);
+  assert.equal(ctx.needsRelay_('https://www.msit.go.kr/x', '실패: 무엇'), false);
+});
