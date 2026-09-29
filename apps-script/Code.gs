@@ -404,6 +404,7 @@ function deliverApproved() {
   });
 
   var stopped = false;
+  var downHosts = {}; // 이번 실행에서 접속 오류가 난 사이트. 같은 사이트의 남은 행은 대기로 두고 다음 실행에 다시 시도한다
   todo.forEach(function (i, n) {
     if (stopped || Date.now() - started > TIME_BUDGET_MS) {
       if (!stopped) { stopped = true; scheduleContinuation_(); }
@@ -419,7 +420,14 @@ function deliverApproved() {
       if (UNREACHABLE_HOSTS.indexOf(host.toLowerCase()) >= 0) {
         setStatus('실패: 해외에서 받을 수 없는 사이트(' + host + '). 원문 링크에서 직접 받아 넣는다'); return;
       }
-      var res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
+      if (downHosts[host]) return;
+      var res;
+      try {
+        res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
+      } catch (err) {
+        downHosts[host] = true;
+        throw err;
+      }
       if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
       var blob = blobOf_(res, ext);
       var bytes = blob.getBytes().length;
