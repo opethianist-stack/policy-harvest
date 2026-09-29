@@ -104,6 +104,8 @@ class Source:
 | KERIS | 표, `?mi=&bbsId=&currPage=N` | `nttView('nttSn')` → `selectNttInfo.do?mi=&nttSn=&bbsId=` | 구현(`harvest/sources/keris.py`). 보도자료·공지사항. 첨부 서버가 Content-Type을 `application-download`로 준다(Apps Script `blobOf_`가 처리). 보도자료의 행사 사진은 뺀다 |
 | KOSAC | 표(`table.board_list`, tbody 없음), 기본 목록 → `?page=1`… | `/menus/272/boards/394/posts/{글번호}` | 구현(`harvest/sources/kosac.py`). 다운로드 버튼 href가 비어 있어 첨부 주소는 페이지 데이터의 `cdn.kosac.re.kr/files/cms/attach/…`, 이름은 `.view_file`에서 같은 순서로 짝짓는다. 구분 칸도 `class="date"`라 날짜가 있는 칸을 읽는다. 보도자료가 한 달에 1~4건 |
 
+과기정통부 첨부는 구글 서버(Apps Script)에서 받을 수 없어 GitHub 러너가 매일 00:30에 대신 받아 시트 웹 앱의 중계 폴더에 넣는다(`harvest/relay.py`, `relay` 워크플로, `docs/setup-apps-script.md`).
+
 KEDI와 기관 경영공시·경영목표 페이지, 고용노동부 업무보고는 받지 않는다(2026-09-28 담당자 결정).
 
 ### 요청 예절

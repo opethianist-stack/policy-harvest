@@ -19,8 +19,11 @@ var INDEXED_EXT = ['pdf', 'hwpx', 'hwp']; // Policy Fit 색인이 읽는 형식
 var CONVERT_EXT = ['odt']; // PDF로 바꿔 저장하는 형식
 var STORE_EXT = ['xlsx', 'xls']; // 색인되지 않지만 데이터 자료라 원본 그대로 저장하는 형식
 var UNZIP_EXT = ['zip']; // 풀어서 안의 파일을 저장하는 형식
-// 구글 서버(해외)에서 받을 수 없는 사이트. 받기를 시도하면 한 건에 몇 분씩 멈췄다가 실패해(2026-09-29 과기부) 바로 실패로 적는다
+// 구글 서버(해외)에서 받을 수 없는 사이트(2026-09-29 과기부: 한 건에 몇 분씩 멈췄다가 실패).
+// 이 사이트의 첨부는 GitHub 러너가 매일 00:30에 대신 받아 중계 폴더에 넣고(relay 워크플로), deliverApproved는 그 파일을 쓴다
 var UNREACHABLE_HOSTS = ['www.msit.go.kr', 'msit.go.kr'];
+var RELAY_FOLDER_NAME = 'policy-harvest 중계'; // 정책문서 폴더 밖에 둔다(Policy Fit 색인에 섞이지 않게)
+var RELAY_MAX_BYTES = 35 * 1024 * 1024; // 웹 앱 요청 한도(약 50MB) 안에서 base64로 늘어나는 몫을 뺀 값
 var CATEGORIES = ['부처', '공공기관', '교육청', '협의체'];
 
 // [열 이름, 수집기가 보내는 키]. 키가 없는 열은 담당자·스크립트가 채운다
@@ -213,6 +216,8 @@ function doPost(e) {
   if (body.action === 'keys') return json_({ ok: true, keys: postKeys_() });
   if (body.action === 'failed_keys') return json_({ ok: true, keys: failedKeys_() });
   if (body.action === 'update') return withLock_(function () { return json_(updateRows_(body.rows || [])); });
+  if (body.action === 'relay_list') return json_({ ok: true, rows: relayList_() });
+  if (body.action === 'relay_put') return json_(relayPut_(body));
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -303,6 +308,75 @@ function updateRows_(rows) {
   return { ok: true, updated: updated };
 }
 
+// ── 중계(해외에서 받을 수 없는 사이트) ──────────────────────────────────
+
+function hostOf_(url) {
+  return (((/^https?:\/\/([^\/:?#]+)/i.exec(String(url || '')) || [])[1]) || '').toLowerCase();
+}
+
+function unreachable_(url) {
+  return UNREACHABLE_HOSTS.indexOf(hostOf_(url)) >= 0;
+}
+
+/** 첨부 주소 → 중계 폴더의 파일 이름(주소의 SHA-256) */
+function relayName_(url) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(url), Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+
+function relayFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('RELAY_FOLDER_ID');
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (err) { /* 지워졌으면 새로 만든다 */ }
+  }
+  var folder = DriveApp.createFolder(RELAY_FOLDER_NAME);
+  props.setProperty('RELAY_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+function relayFile_(folder, url) {
+  var it = folder.getFilesByName(relayName_(url));
+  return it.hasNext() ? it.next() : null;
+}
+
+/** 승인된 대기 행 중 중계가 필요한데 아직 파일이 없는 첨부 */
+function relayList_() {
+  var sh = sheet_();
+  var last = lastDataRow_(sh);
+  if (last < 2) return [];
+  var data = sh.getRange(2, 1, last - 1, COLUMNS.length).getValues();
+  var c = function (label) { return col_(label) - 1; };
+  var folder = relayFolder_(), out = [], seen = {};
+  data.forEach(function (row) {
+    var url = String(row[c('첨부 URL')]);
+    if (row[c('승인')] !== true || row[c('상태')] !== '대기' || !unreachable_(url) || seen[url]) return;
+    seen[url] = true;
+    if (!relayFile_(folder, url)) out.push({ att_url: url, post_url: String(row[c('원문 링크')]) });
+  });
+  return out;
+}
+
+/** 러너가 받은 파일을 중계 폴더에 넣는다. 시트에 있는 중계 대상 주소만 받는다 */
+function relayPut_(body) {
+  var url = String(body.att_url || '');
+  if (!unreachable_(url) || postUrls_().indexOf(url) < 0) return { ok: false, error: '중계 대상이 아닌 주소' };
+  var bytes = Utilities.base64Decode(String(body.data || ''));
+  if (bytes.length < 1024 || bytes.length > RELAY_MAX_BYTES) return { ok: false, error: '파일 크기 이상(' + bytes.length + 'B)' };
+  var folder = relayFolder_();
+  var old = relayFile_(folder, url);
+  if (old) old.setTrashed(true);
+  folder.createFile(Utilities.newBlob(bytes, 'application/octet-stream', relayName_(url)));
+  return { ok: true, bytes: bytes.length };
+}
+
+function postUrls_() {
+  var sh = sheet_();
+  var last = lastDataRow_(sh);
+  if (last < 2) return [];
+  return sh.getRange(2, col_('첨부 URL'), last - 1, 1).getValues().map(function (r) { return String(r[0]); });
+}
+
 // ── 검토 보기(필터) ───────────────────────────────────────────────────
 
 function onOpen() {
@@ -387,6 +461,15 @@ function deliverApproved() {
     // 실패한 행은 다시 시도하지 않는다(원인을 고친 뒤 상태를 '대기'로 바꾸면 다시 보낸다)
     if (row[c('승인')] === true && (status === '대기' || status === '')) todo.push(i);
   });
+  // 중계가 필요한 첨부는 러너가 넣어 둔 파일이 있을 때만 보낸다(없으면 대기로 두어 번호도 잡지 않는다)
+  var relay = null, relayed = {};
+  todo = todo.filter(function (i) {
+    var url = String(data[i][c('첨부 URL')]);
+    if (!unreachable_(url)) return true;
+    relay = relay || relayFolder_();
+    relayed[i] = relayFile_(relay, url);
+    return !!relayed[i];
+  });
   if (!todo.length) return;
 
   var folder = DriveApp.getFolderById(FOLDER_ID);
@@ -416,20 +499,21 @@ function deliverApproved() {
       var ext = extOf(row[c('첨부 이름')]) || extOf(row[c('첨부 URL')]);
       var known = INDEXED_EXT.concat(CONVERT_EXT, STORE_EXT, UNZIP_EXT);
       if (known.indexOf(ext) < 0) { setStatus('실패: 저장하지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
-      var host = (/^https?:\/\/([^\/:?#]+)/i.exec(String(row[c('첨부 URL')])) || [])[1] || '';
-      if (UNREACHABLE_HOSTS.indexOf(host.toLowerCase()) >= 0) {
-        setStatus('실패: 해외에서 받을 수 없는 사이트(' + host + '). 원문 링크에서 직접 받아 넣는다'); return;
+      var host = hostOf_(row[c('첨부 URL')]), blob;
+      if (relayed[i]) {
+        blob = typedBlob_(relayed[i].getBlob().getBytes(), '', ext);
+      } else {
+        if (downHosts[host]) return;
+        var res;
+        try {
+          res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
+        } catch (err) {
+          downHosts[host] = true;
+          throw err;
+        }
+        if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
+        blob = blobOf_(res, ext);
       }
-      if (downHosts[host]) return;
-      var res;
-      try {
-        res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
-      } catch (err) {
-        downHosts[host] = true;
-        throw err;
-      }
-      if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
-      var blob = blobOf_(res, ext);
       var bytes = blob.getBytes().length;
       if (bytes < 1024) { setStatus('실패: 파일이 너무 작음(' + bytes + 'B, 오류 페이지일 수 있음)'); return; }
 
@@ -468,6 +552,7 @@ function deliverApproved() {
       if (parts.length > 1 || UNZIP_EXT.indexOf(ext) >= 0) notes.unshift('압축 풀어 ' + parts.length + '개');
       sh.getRange(r, col_('파일명')).setValue(names.join('\n'));
       sh.getRange(r, col_('드라이브 링크')).setValue(links.join('\n'));
+      if (relayed[i]) { relayed[i].setTrashed(true); notes.push('러너 중계'); }
       setStatus('전송 완료 ' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') +
                 (notes.length ? ' (' + notes.filter(function (x, k) { return notes.indexOf(x) === k; }).join(', ') + ')' : ''));
     } catch (err) {
@@ -515,11 +600,15 @@ function download_(url, referer) {
 function blobOf_(res, ext) {
   var headers = res.getHeaders(), type = '';
   Object.keys(headers).forEach(function (k) { if (k.toLowerCase() === 'content-type') type = String(headers[k]); });
-  type = type.split(';')[0].trim();
+  return typedBlob_(res.getContent(), type, ext);
+}
+
+function typedBlob_(bytes, type, ext) {
+  type = String(type || '').split(';')[0].trim();
   if (ext === 'odt') type = 'application/vnd.oasis.opendocument.text'; // 구글 문서 변환이 형식을 보고 판단한다
   else if (ext === 'pdf') type = 'application/pdf';
   else if (!/^[\w.+-]+\/[\w.+-]+$/.test(type)) type = 'application/octet-stream';
-  return Utilities.newBlob(res.getContent(), type, 'download.' + ext);
+  return Utilities.newBlob(bytes, type, 'download.' + ext);
 }
 
 /**

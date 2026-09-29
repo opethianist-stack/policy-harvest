@@ -247,3 +247,11 @@ def test_edu_one_office_failure_does_not_stop_others(monkeypatch):
 
     posts = edu.collect(FakeHttp(), datetime.date(2026, 9, 14), datetime.date(2026, 9, 28))
     assert [p.agency for p in posts] == ["GOE"]  # 주소를 적어 둔 경기만 남고, 충북 실패로 멈추지 않는다
+
+
+def test_relay_check():
+    from harvest.relay import check
+    assert check(200, b"PK\x03\x04" + b"x" * 2000) is None
+    assert check(404, b"x" * 2000) == "HTTP 404"
+    assert check(200, b"x" * 10).startswith("파일이 너무 작음")
+    assert check(200, b"  <html>" + b"x" * 2000).startswith("HTML")
