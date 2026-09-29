@@ -255,3 +255,10 @@ def test_relay_check():
     assert check(404, b"x" * 2000) == "HTTP 404"
     assert check(200, b"x" * 10).startswith("파일이 너무 작음")
     assert check(200, b"  <html>" + b"x" * 2000).startswith("HTML")
+
+
+def test_pick_attachments_drops_html_md_zips_next_to_pdf():
+    atts = [Attachment("[최종] AI 보안 위협 대응 매뉴얼.pdf", "1"),
+            Attachment("(HTML) 260708 AI 보안 위협 대응 매뉴얼.zip", "2"),
+            Attachment("(MD) 260708 AI 보안 위협 대응 매뉴얼.zip", "3")]
+    assert [a.url for a in pick_attachments(atts)] == ["1"]

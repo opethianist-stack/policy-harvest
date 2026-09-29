@@ -21,7 +21,10 @@ var STORE_EXT = ['xlsx', 'xls']; // 색인되지 않지만 데이터 자료라 �
 var UNZIP_EXT = ['zip']; // 풀어서 안의 파일을 저장하는 형식
 // 구글 서버(해외)에서 받을 수 없는 사이트(2026-09-29 과기부: 한 건에 몇 분씩 멈췄다가 실패).
 // 이 사이트의 첨부는 GitHub 러너가 매일 00:30에 대신 받아 중계 폴더에 넣고(relay 워크플로), deliverApproved는 그 파일을 쓴다
-var UNREACHABLE_HOSTS = ['www.msit.go.kr', 'msit.go.kr'];
+// 목록에 없는 사이트도 받기에서 "Address unavailable"이 나면 그 행을 '중계 대기'로 바꿔 러너가 받게 한다(2026-09-29 교육부)
+var UNREACHABLE_HOSTS = ['www.msit.go.kr', 'msit.go.kr', 'www.moe.go.kr', 'moe.go.kr'];
+var RELAY_STATUS = '중계 대기';
+var UNREACHABLE_ERROR = /Address unavailable|사용할 수 없는 주소/i;
 var RELAY_FOLDER_NAME = 'policy-harvest 중계'; // 정책문서 폴더 밖에 둔다(Policy Fit 색인에 섞이지 않게)
 var RELAY_MAX_BYTES = 35 * 1024 * 1024; // 웹 앱 요청 한도(약 50MB) 안에서 base64로 늘어나는 몫을 뺀 값
 var CATEGORIES = ['부처', '공공기관', '교육청', '협의체'];
@@ -340,27 +343,37 @@ function relayFile_(folder, url) {
   return it.hasNext() ? it.next() : null;
 }
 
-/** 승인된 대기 행 중 중계가 필요한데 아직 파일이 없는 첨부 */
-function relayList_() {
+/** 이 행의 첨부를 러너가 대신 받아야 하는지: 목록에 있는 사이트이거나, 받기에서 주소 오류가 나 '중계 대기'가 된 행 */
+function needsRelay_(url, status) {
+  return status === RELAY_STATUS || (status === '대기' && unreachable_(url));
+}
+
+/** 승인된 행 중 러너가 대신 받아야 하는 첨부 {주소: 원문 링크} */
+function relayTargets_() {
   var sh = sheet_();
   var last = lastDataRow_(sh);
-  if (last < 2) return [];
+  var out = {};
+  if (last < 2) return out;
   var data = sh.getRange(2, 1, last - 1, COLUMNS.length).getValues();
   var c = function (label) { return col_(label) - 1; };
-  var folder = relayFolder_(), out = [], seen = {};
   data.forEach(function (row) {
     var url = String(row[c('첨부 URL')]);
-    if (row[c('승인')] !== true || row[c('상태')] !== '대기' || !unreachable_(url) || seen[url]) return;
-    seen[url] = true;
-    if (!relayFile_(folder, url)) out.push({ att_url: url, post_url: String(row[c('원문 링크')]) });
+    if (row[c('승인')] === true && needsRelay_(url, String(row[c('상태')]))) out[url] = String(row[c('원문 링크')]);
   });
   return out;
+}
+
+/** 중계가 필요한데 아직 중계 폴더에 파일이 없는 첨부 */
+function relayList_() {
+  var targets = relayTargets_(), folder = relayFolder_();
+  return Object.keys(targets).filter(function (url) { return !relayFile_(folder, url); })
+    .map(function (url) { return { att_url: url, post_url: targets[url] }; });
 }
 
 /** 러너가 받은 파일을 중계 폴더에 넣는다. 시트에 있는 중계 대상 주소만 받는다 */
 function relayPut_(body) {
   var url = String(body.att_url || '');
-  if (!unreachable_(url) || postUrls_().indexOf(url) < 0) return { ok: false, error: '중계 대상이 아닌 주소' };
+  if (!relayTargets_()[url]) return { ok: false, error: '중계 대상이 아닌 주소' };
   var bytes = Utilities.base64Decode(String(body.data || ''));
   if (bytes.length < 1024 || bytes.length > RELAY_MAX_BYTES) return { ok: false, error: '파일 크기 이상(' + bytes.length + 'B)' };
   var folder = relayFolder_();
@@ -368,13 +381,6 @@ function relayPut_(body) {
   if (old) old.setTrashed(true);
   folder.createFile(Utilities.newBlob(bytes, 'application/octet-stream', relayName_(url)));
   return { ok: true, bytes: bytes.length };
-}
-
-function postUrls_() {
-  var sh = sheet_();
-  var last = lastDataRow_(sh);
-  if (last < 2) return [];
-  return sh.getRange(2, col_('첨부 URL'), last - 1, 1).getValues().map(function (r) { return String(r[0]); });
 }
 
 // ── 검토 보기(필터) ───────────────────────────────────────────────────
@@ -416,7 +422,7 @@ function showReview_(sh) {
   f.setColumnFilterCriteria(col_('추천'), SpreadsheetApp.newFilterCriteria()
     .whenFormulaSatisfied('=' + rec + '2<>"제외"').build());
   f.setColumnFilterCriteria(col_('상태'), SpreadsheetApp.newFilterCriteria()
-    .whenFormulaSatisfied('=OR(' + st + '2="대기",LEFT(' + st + '2,2)="실패")').build());
+    .whenFormulaSatisfied('=OR(' + st + '2="대기",' + st + '2="' + RELAY_STATUS + '",LEFT(' + st + '2,2)="실패")').build());
 }
 
 /** 승인하지 않은 대기 행을 '넘김'으로 바꾼다. 분류 실패(검토 필요) 행은 다시 분류되도록 남긴다 */
@@ -459,13 +465,13 @@ function deliverApproved() {
   data.forEach(function (row, i) {
     var status = String(row[c('상태')]);
     // 실패한 행은 다시 시도하지 않는다(원인을 고친 뒤 상태를 '대기'로 바꾸면 다시 보낸다)
-    if (row[c('승인')] === true && (status === '대기' || status === '')) todo.push(i);
+    if (row[c('승인')] === true && (status === '대기' || status === '' || status === RELAY_STATUS)) todo.push(i);
   });
   // 중계가 필요한 첨부는 러너가 넣어 둔 파일이 있을 때만 보낸다(없으면 대기로 두어 번호도 잡지 않는다)
   var relay = null, relayed = {};
   todo = todo.filter(function (i) {
     var url = String(data[i][c('첨부 URL')]);
-    if (!unreachable_(url)) return true;
+    if (!needsRelay_(url, String(data[i][c('상태')]))) return true;
     relay = relay || relayFolder_();
     relayed[i] = relayFile_(relay, url);
     return !!relayed[i];
@@ -509,6 +515,7 @@ function deliverApproved() {
           res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
         } catch (err) {
           downHosts[host] = true;
+          if (UNREACHABLE_ERROR.test(String(err.message || err))) { setStatus(RELAY_STATUS); return; } // 러너가 대신 받는다
           throw err;
         }
         if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
