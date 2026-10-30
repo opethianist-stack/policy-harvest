@@ -1,4 +1,4 @@
 requests>=2.32
 beautifulsoup4>=4.12
 pyyaml>=6.0
-anthropic>=1.8
+anthropic>=1.8,<2  # 2.x는 API 키를 Authorization: Bearer로 보낸다. 바꾸기 전에 확인한다
