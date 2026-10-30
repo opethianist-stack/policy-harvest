@@ -3,7 +3,7 @@
   python -m harvest.relay
 
 과기정통부(www.msit.go.kr)는 해외 구글 서버의 접속을 받지 않지만 GitHub 러너에서는 받아진다(2026-09-29 확인).
-relay 워크플로가 매일 00:30 KST에 돌고, 01:00 deliverApproved가 중계 폴더의 파일로 저장한다.
+relay 워크플로가 매일 00:30 KST(예약이 몇 시간씩 늦을 수 있다)에 돌고, 파일을 넣으면 시트 웹 앱에 전송을 1분 뒤로 걸게 한다.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def main() -> int:
     rows = sheet.relay_list()
     print(f"중계할 첨부 {len(rows)}건")
     http = Http()
-    failed = 0
+    failed = put = 0
     for r in rows:
         url = r["att_url"]
         try:
@@ -50,9 +50,13 @@ def main() -> int:
                 raise RuntimeError(problem)
             out = sheet.relay_put(url, base64.b64encode(res.content).decode("ascii"))
             print(f"  넣음 {out.get('bytes')}B {url}")
+            put += 1
         except Exception as e:  # 한 건이 실패해도 나머지는 넣는다
             failed += 1
             print(f"  실패 {url}: {e}")
+    if put:
+        # 예약 실행이 늦어 01:00 전송보다 뒤에 끝나도 바로 저장되게 한다
+        print("전송 예약:", sheet.deliver_soon())
     if failed:
         print(f"실패 {failed}건. 다음 실행에서 다시 시도한다")
         return 1
