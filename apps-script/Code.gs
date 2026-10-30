@@ -644,10 +644,20 @@ function tooBig_(bytes) {
   return '실패: 파일이 너무 큼(' + Math.round(bytes / 1048576) + 'MB). 원문 링크에서 직접 받아 넣는다';
 }
 
+/**
+ * UrlFetchApp이 받지 않는 문자를 퍼센트 인코딩한다. NIPA 첨부 주소에 '^'가 들어가
+ * "Invalid argument"(잘못된 인수)로 실패했다(2026-10-30). 이미 인코딩된 %XX는 그대로 둔다
+ */
+function safeUrl_(url) {
+  return String(url).replace(/[\^|{}\\`"<> \[\]]/g, function (ch) {
+    return '%' + ch.charCodeAt(0).toString(16).toUpperCase();
+  });
+}
+
 /** HEAD로 파일 크기를 묻는다. 서버가 HEAD를 받지 않거나 크기를 주지 않으면 0 */
 function remoteSize_(url, referer) {
   try {
-    var res = UrlFetchApp.fetch(url, { method: 'head', muteHttpExceptions: true, followRedirects: true,
+    var res = UrlFetchApp.fetch(safeUrl_(url), { method: 'head', muteHttpExceptions: true, followRedirects: true,
                                        validateHttpsCertificates: false, headers: { 'Referer': referer } });
     if (res.getResponseCode() !== 200) return 0;
     var size = 0, headers = res.getHeaders();
@@ -660,6 +670,7 @@ function remoteSize_(url, referer) {
 }
 
 function download_(url, referer) {
+  url = safeUrl_(url);
   var opts = { muteHttpExceptions: true, followRedirects: true,
                headers: { 'Referer': referer, 'Accept': '*/*', 'Accept-Language': 'ko-KR,ko;q=0.9' } };
   try {
