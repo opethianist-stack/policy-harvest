@@ -96,3 +96,10 @@ test('needsRelay_ covers listed hosts and address errors', () => {
   assert.equal(ctx.needsRelay_('https://www.nia.or.kr/common/board/Download.do?x=1', '중계 대기'), true);
   assert.equal(ctx.needsRelay_('https://www.msit.go.kr/x', '실패: 무엇'), false);
 });
+
+test('safeUrl_ encodes characters UrlFetchApp rejects', () => {
+  assert.equal(
+    ctx.safeUrl_('https://www.nipa.kr/comm/getFile?srvcId=BBSTY1&upperNo=Y10jgblzgl06v^u7ikEqpw==&fileNo=FGen*X'),
+    'https://www.nipa.kr/comm/getFile?srvcId=BBSTY1&upperNo=Y10jgblzgl06v%5Eu7ikEqpw==&fileNo=FGen*X');
+  assert.equal(ctx.safeUrl_('https://x.kr/a b|c%20d'), 'https://x.kr/a%20b%7Cc%20d');
+});
