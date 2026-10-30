@@ -162,12 +162,15 @@ def main(argv=None) -> int:
             for att in p.attachments:
                 print(f"  [파일] {p.agency} {att.name}: {probe_file(http, att.url, p.url)}")
 
+    unclassified: list[Post] = []
     if args.classify:
         # 분류 API 오류 등으로 분류하지 못한 글은 보내지 않는다. 시트에 없으니 다음 실행(기간 안)에서 다시 분류한다
         unclassified = [p for p in posts if results.get(p.key, {}).get("recommend") == "검토 필요"]
         if unclassified:
             print(f"분류하지 못한 글 {len(unclassified)}건은 보내지 않음(다음 실행에서 다시 분류)")
             posts = [p for p in posts if p not in unclassified]
+            reasons = sorted({results[p.key].get("reason", "")[:60] for p in unclassified})
+            print("분류 실패 이유:", " / ".join(reasons))
 
     rows = to_rows(posts, agencies, now, results)
     print(f"시트 행 {len(rows)}개")
@@ -176,6 +179,10 @@ def main(argv=None) -> int:
             print("시트 행 고침:", sheet.update_rows(rows))
         else:
             print("시트 전송:", sheet.post_rows(rows))
+    if unclassified:
+        # 분류 API 키가 잘못되면 모든 글이 분류되지 못한 채 실행은 성공으로 끝나 아무도 모른다(2026-10-21~29).
+        # 실패로 끝내 워크플로가 빨갛게 표시되고 GitHub가 메일로 알리게 한다
+        failed.append("분류")
     if failed:
         # 다른 기관 결과는 보낸 뒤 실패로 끝내 워크플로가 빨갛게 표시되게 한다(GitHub가 메일로 알린다)
         print("수집 실패 기관:", ", ".join(failed))
