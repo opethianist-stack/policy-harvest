@@ -451,9 +451,25 @@ function markReviewed() {
 
 // Apps Script 한 번 실행은 6분에서 끊긴다. 그 전에 멈추고 1분 뒤 이어서 돌 트리거를 건다
 var TIME_BUDGET_MS = 4 * 60 * 1000;
+// 처리 중인 행에 먼저 적어 두는 상태. 메모리 부족처럼 실행 자체가 죽으면 이 상태가 남고,
+// 다음 실행은 그 행을 실패로 적고 넘어간다(같은 행에서 매번 멈추지 않게)
+var IN_PROGRESS = '전송 중';
+var RUN_LOCK_MS = 7 * 60 * 1000; // 한 실행이 도는 동안 다른 실행(메뉴·트리거)이 겹치지 않게
 
 function deliverApproved() {
   var started = Date.now();
+  var props = PropertiesService.getScriptProperties();
+  var running = Number(props.getProperty('DELIVERING') || 0);
+  if (running && started - running < RUN_LOCK_MS) { Logger.log('다른 전송 실행이 도는 중'); return; }
+  props.setProperty('DELIVERING', String(started));
+  try {
+    deliver_(started);
+  } finally {
+    props.deleteProperty('DELIVERING');
+  }
+}
+
+function deliver_(started) {
   clearContinuation_();
   var sh = sheet_();
   var last = lastDataRow_(sh);
@@ -464,6 +480,10 @@ function deliverApproved() {
   var todo = [];
   data.forEach(function (row, i) {
     var status = String(row[c('상태')]);
+    if (status === IN_PROGRESS) {
+      sh.getRange(i + 2, col_('상태')).setValue('실패: 이전 실행이 이 행에서 멈춤(파일이 너무 크거나 메모리 부족). 원문 링크에서 직접 받아 넣는다');
+      return;
+    }
     // 실패한 행은 다시 시도하지 않는다(원인을 고친 뒤 상태를 '대기'로 바꾸면 다시 보낸다)
     if (row[c('승인')] === true && (status === '대기' || status === '' || status === RELAY_STATUS)) todo.push(i);
   });
@@ -502,12 +522,15 @@ function deliverApproved() {
     var row = data[i], r = i + 2;
     var setStatus = function (s) { sh.getRange(r, col_('상태')).setValue(s); };
     try {
+      setStatus(IN_PROGRESS);
+      SpreadsheetApp.flush();
       var ext = extOf(row[c('첨부 이름')]) || extOf(row[c('첨부 URL')]);
       var known = INDEXED_EXT.concat(CONVERT_EXT, STORE_EXT, UNZIP_EXT);
       if (known.indexOf(ext) < 0) { setStatus('실패: 저장하지 않는 형식(' + (ext || '알 수 없음') + ')'); return; }
-      var host = hostOf_(row[c('첨부 URL')]), blob;
+      var host = hostOf_(row[c('첨부 URL')]), blob, bytes;
       if (relayed[i]) {
-        blob = typedBlob_(relayed[i].getBlob().getBytes(), '', ext);
+        bytes = relayed[i].getSize();
+        blob = relayed[i].getBlob().setContentType(mimeFor_('', ext)).setName('download.' + ext);
       } else {
         if (downHosts[host]) return;
         var res;
@@ -519,9 +542,12 @@ function deliverApproved() {
           throw err;
         }
         if (res.getResponseCode() !== 200) { setStatus('실패: 다운로드 HTTP ' + res.getResponseCode()); return; }
-        blob = blobOf_(res, ext);
+        var content = res.getContent(); // 파일 바이트를 한 번만 꺼낸다(복사가 늘면 큰 파일에서 메모리 한도를 넘는다)
+        bytes = content.length;
+        blob = typedBlob_(content, contentType_(res), ext);
+        content = null;
+        res = null;
       }
-      var bytes = blob.getBytes().length;
       if (bytes < 1024) { setStatus('실패: 파일이 너무 작음(' + bytes + 'B, 오류 페이지일 수 있음)'); return; }
 
       // 저장할 조각: 보통은 받은 파일 하나, zip이면 안의 파일들
@@ -605,17 +631,24 @@ function download_(url, referer) {
  * "Invalid argument"로 멈추므로 바이트로 받아 형식을 직접 정한다
  */
 function blobOf_(res, ext) {
+  return typedBlob_(res.getContent(), contentType_(res), ext);
+}
+
+function contentType_(res) {
   var headers = res.getHeaders(), type = '';
   Object.keys(headers).forEach(function (k) { if (k.toLowerCase() === 'content-type') type = String(headers[k]); });
-  return typedBlob_(res.getContent(), type, ext);
+  return type;
 }
 
 function typedBlob_(bytes, type, ext) {
+  return Utilities.newBlob(bytes, mimeFor_(type, ext), 'download.' + ext);
+}
+
+function mimeFor_(type, ext) {
   type = String(type || '').split(';')[0].trim();
-  if (ext === 'odt') type = 'application/vnd.oasis.opendocument.text'; // 구글 문서 변환이 형식을 보고 판단한다
-  else if (ext === 'pdf') type = 'application/pdf';
-  else if (!/^[\w.+-]+\/[\w.+-]+$/.test(type)) type = 'application/octet-stream';
-  return Utilities.newBlob(bytes, type, 'download.' + ext);
+  if (ext === 'odt') return 'application/vnd.oasis.opendocument.text'; // 구글 문서 변환이 형식을 보고 판단한다
+  if (ext === 'pdf') return 'application/pdf';
+  return /^[\w.+-]+\/[\w.+-]+$/.test(type) ? type : 'application/octet-stream';
 }
 
 /**
