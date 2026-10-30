@@ -15,7 +15,7 @@ from . import sheet
 from .collect import APPS_SCRIPT_UA
 from .sources.base import Http
 
-MAX_BYTES = 35 * 1024 * 1024  # Apps Script RELAY_MAX_BYTES 와 같다
+MAX_BYTES = 30 * 1024 * 1024  # Apps Script RELAY_MAX_BYTES·DELIVER_MAX_BYTES 와 같다
 
 
 def check(status: int, content: bytes) -> str | None:
@@ -41,6 +41,11 @@ def main() -> int:
         try:
             res = http.get(url, timeout=120, headers={"User-Agent": APPS_SCRIPT_UA, "Referer": r.get("post_url", "")})
             problem = check(res.status_code, res.content)
+            if problem and problem.startswith("파일이 너무 큼"):
+                # 다시 받아도 같다. 행을 실패로 적어 매일 다시 시도하지 않게 한다
+                sheet.relay_fail(url, problem)
+                print(f"  너무 큼, 행을 실패로 적음 {url}: {problem}")
+                continue
             if problem:
                 raise RuntimeError(problem)
             out = sheet.relay_put(url, base64.b64encode(res.content).decode("ascii"))
