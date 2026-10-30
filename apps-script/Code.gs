@@ -225,6 +225,7 @@ function doPost(e) {
   if (body.action === 'update') return withLock_(function () { return json_(updateRows_(body.rows || [])); });
   if (body.action === 'relay_list') return json_({ ok: true, rows: relayList_() });
   if (body.action === 'relay_put') return json_(relayPut_(body));
+  if (body.action === 'deliver_soon') return json_(deliverSoon_());
   if (body.action === 'relay_fail') return withLock_(function () { return json_(relayFail_(body)); });
 
   var lock = LockService.getScriptLock();
@@ -624,6 +625,17 @@ function deliver_(started) {
  * 원본 파일 받기. 원문 페이지를 Referer로 보낸다(없으면 빈 파일을 주는 사이트가 있다).
  * 중간 인증서를 빠뜨린 사이트(울산교육청)는 인증서 검증 없이 한 번 더 받는다. 공개 문서를 받기만 한다
  */
+/**
+ * 러너가 중계 파일을 넣은 뒤 부른다. GitHub 예약 실행이 몇 시간씩 늦어(00:30 예약이 03~05시에 돈다)
+ * 01:00 전송보다 뒤에 끝나는 일이 잦아, 중계가 끝나면 1분 뒤 전송을 한 번 돌린다.
+ * 트리거로 돌기 때문에 파일 소유자는 스크립트 소유자(부서 계정)가 된다
+ */
+function deliverSoon_() {
+  var exists = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'continueDelivery'; });
+  if (!exists) scheduleContinuation_();
+  return { ok: true, scheduled: !exists };
+}
+
 /** 남은 승인 행을 이어서 보내도록 1분 뒤 한 번 도는 트리거를 건다 */
 function scheduleContinuation_() {
   ScriptApp.newTrigger('continueDelivery').timeBased().after(60 * 1000).create();

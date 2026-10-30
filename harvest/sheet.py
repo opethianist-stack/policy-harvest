@@ -79,6 +79,11 @@ def relay_fail(att_url: str, reason: str, session: requests.Session | None = Non
     return _call(session or requests.Session(), {"action": "relay_fail", "att_url": att_url, "reason": reason})
 
 
+def deliver_soon(session: requests.Session | None = None) -> dict:
+    """중계를 마친 뒤 시트 웹 앱에 전송 실행을 1분 뒤로 걸게 한다."""
+    return _call(session or requests.Session(), {"action": "deliver_soon"})
+
+
 def _post_batch(s, batch: list[dict], sleep=time.sleep) -> dict:
     return _call(s, {"rows": batch}, sleep)
 
