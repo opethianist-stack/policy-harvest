@@ -15,6 +15,10 @@
 var FOLDER_ID = '1-VLB42YhmZZIMxoR48J2qeIYgMYMdAK5'; // Policy Fit 정책문서 폴더
 var SHEET_NAME = 'inbox';
 var MAX_BYTES = 50 * 1024 * 1024; // UrlFetchApp 응답 한도
+// 이보다 큰 파일은 받지 않고 실패로 적는다. 2026-10 국가AI전략위 별첨 PDF(57MB, 장표를 이미지로 넣음)가
+// 메모리 한도를 넘겨 실행이 매번 죽었다. 받기 전에 HEAD로 크기를 보고, 크기를 알려주지 않는 서버는 받은 뒤에 본다
+var DELIVER_MAX_BYTES = 30 * 1024 * 1024;
+var UNZIP_MAX_BYTES = 15 * 1024 * 1024; // zip은 풀 때 안의 파일(사진 포함)을 한꺼번에 메모리에 올린다
 var INDEXED_EXT = ['pdf', 'hwpx', 'hwp']; // Policy Fit 색인이 읽는 형식
 var CONVERT_EXT = ['odt']; // PDF로 바꿔 저장하는 형식
 var STORE_EXT = ['xlsx', 'xls']; // 색인되지 않지만 데이터 자료라 원본 그대로 저장하는 형식
@@ -26,7 +30,7 @@ var UNREACHABLE_HOSTS = ['www.msit.go.kr', 'msit.go.kr', 'www.moe.go.kr', 'moe.g
 var RELAY_STATUS = '중계 대기';
 var UNREACHABLE_ERROR = /Address unavailable|사용할 수 없는 주소/i;
 var RELAY_FOLDER_NAME = 'policy-harvest 중계'; // 정책문서 폴더 밖에 둔다(Policy Fit 색인에 섞이지 않게)
-var RELAY_MAX_BYTES = 35 * 1024 * 1024; // 웹 앱 요청 한도(약 50MB) 안에서 base64로 늘어나는 몫을 뺀 값
+var RELAY_MAX_BYTES = 30 * 1024 * 1024; // DELIVER_MAX_BYTES와 같게(웹 앱 요청 한도 약 50MB 안에서 base64로 늘어나는 몫도 뺀 값)
 var CATEGORIES = ['부처', '공공기관', '교육청', '협의체'];
 
 // [열 이름, 수집기가 보내는 키]. 키가 없는 열은 담당자·스크립트가 채운다
@@ -221,6 +225,7 @@ function doPost(e) {
   if (body.action === 'update') return withLock_(function () { return json_(updateRows_(body.rows || [])); });
   if (body.action === 'relay_list') return json_({ ok: true, rows: relayList_() });
   if (body.action === 'relay_put') return json_(relayPut_(body));
+  if (body.action === 'relay_fail') return withLock_(function () { return json_(relayFail_(body)); });
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -368,6 +373,21 @@ function relayList_() {
   var targets = relayTargets_(), folder = relayFolder_();
   return Object.keys(targets).filter(function (url) { return !relayFile_(folder, url); })
     .map(function (url) { return { att_url: url, post_url: targets[url] }; });
+}
+
+/** 러너가 받을 수 없거나 너무 큰 첨부: 그 주소의 중계 대상 행을 실패로 적는다(매일 다시 시도하지 않게) */
+function relayFail_(body) {
+  var url = String(body.att_url || ''), reason = String(body.reason || '').slice(0, 150);
+  if (!relayTargets_()[url]) return { ok: false, error: '중계 대상이 아닌 주소' };
+  var sh = sheet_(), last = lastDataRow_(sh), n = 0;
+  var data = sh.getRange(2, 1, last - 1, COLUMNS.length).getValues();
+  data.forEach(function (row, i) {
+    if (String(row[col_('첨부 URL') - 1]) === url && row[col_('승인') - 1] === true) {
+      sh.getRange(i + 2, col_('상태')).setValue('실패: ' + reason + '. 원문 링크에서 직접 받아 넣는다');
+      n++;
+    }
+  });
+  return { ok: true, rows: n };
 }
 
 /** 러너가 받은 파일을 중계 폴더에 넣는다. 시트에 있는 중계 대상 주소만 받는다 */
@@ -535,6 +555,8 @@ function deliver_(started) {
         if (downHosts[host]) return;
         var res;
         try {
+          var announced = remoteSize_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
+          if (announced > DELIVER_MAX_BYTES) { setStatus(tooBig_(announced)); return; }
           res = download_(String(row[c('첨부 URL')]), String(row[c('원문 링크')]));
         } catch (err) {
           downHosts[host] = true;
@@ -549,6 +571,10 @@ function deliver_(started) {
         res = null;
       }
       if (bytes < 1024) { setStatus('실패: 파일이 너무 작음(' + bytes + 'B, 오류 페이지일 수 있음)'); return; }
+      if (bytes > DELIVER_MAX_BYTES) { setStatus(tooBig_(bytes)); return; }
+      if (UNZIP_EXT.indexOf(ext) >= 0 && bytes > UNZIP_MAX_BYTES) {
+        setStatus('실패: 압축 파일이 커서 풀지 않음(' + Math.round(bytes / 1048576) + 'MB). 원문 링크에서 직접 받아 넣는다'); return;
+      }
 
       // 저장할 조각: 보통은 받은 파일 하나, zip이면 안의 파일들
       var parts = [{ blob: blob, ext: ext, label: '' }];
@@ -612,6 +638,25 @@ function clearContinuation_() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'continueDelivery') ScriptApp.deleteTrigger(t);
   });
+}
+
+function tooBig_(bytes) {
+  return '실패: 파일이 너무 큼(' + Math.round(bytes / 1048576) + 'MB). 원문 링크에서 직접 받아 넣는다';
+}
+
+/** HEAD로 파일 크기를 묻는다. 서버가 HEAD를 받지 않거나 크기를 주지 않으면 0 */
+function remoteSize_(url, referer) {
+  try {
+    var res = UrlFetchApp.fetch(url, { method: 'head', muteHttpExceptions: true, followRedirects: true,
+                                       validateHttpsCertificates: false, headers: { 'Referer': referer } });
+    if (res.getResponseCode() !== 200) return 0;
+    var size = 0, headers = res.getHeaders();
+    Object.keys(headers).forEach(function (k) { if (k.toLowerCase() === 'content-length') size = Number(headers[k]) || 0; });
+    return size;
+  } catch (err) {
+    if (UNREACHABLE_ERROR.test(String(err.message || err))) throw err; // 받기와 같은 접속 오류는 중계로 넘긴다
+    return 0;
+  }
 }
 
 function download_(url, referer) {

@@ -74,6 +74,11 @@ def relay_put(att_url: str, data_b64: str, session: requests.Session | None = No
     return _call(session or requests.Session(), {"action": "relay_put", "att_url": att_url, "data": data_b64})
 
 
+def relay_fail(att_url: str, reason: str, session: requests.Session | None = None) -> dict:
+    """러너가 받아도 쓸 수 없는 첨부(너무 큼 등): 시트의 그 행을 실패로 적게 한다."""
+    return _call(session or requests.Session(), {"action": "relay_fail", "att_url": att_url, "reason": reason})
+
+
 def _post_batch(s, batch: list[dict], sleep=time.sleep) -> dict:
     return _call(s, {"rows": batch}, sleep)
 
